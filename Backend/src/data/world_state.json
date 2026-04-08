@@ -1,0 +1,34 @@
+{
+  "suppliers": [
+    {
+      "id": "SUPPLIER_A",
+      "name": "Global Li-Tech",
+      "base_price": 100,
+      "current_price": 125,
+      "gps_status": "STATIONARY",
+      "satellite_view": "ANOMALY_DETECTED",
+      "internet_news": "Local reports of safety violations",
+      "compliance_rules": [
+        "no_child_labor",
+        "environmental_safety"
+      ],
+      "verified_violations": [],
+      "status": "BLOCKED"
+    },
+    {
+      "id": "SUPPLIER_B",
+      "name": "EcoVatt Batteries",
+      "base_price": 110,
+      "current_price": 110,
+      "gps_status": "MOVING",
+      "satellite_view": "NORMAL",
+      "internet_news": "Everything normal",
+      "compliance_rules": [
+        "no_child_labor",
+        "environmental_safety"
+      ],
+      "verified_violations": []
+    }
+  ],
+  "audit_logs": []
+}
