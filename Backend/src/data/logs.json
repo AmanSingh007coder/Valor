@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "supplierId": "SUPPLIER_A",
+    "riskLevel": "HIGH",
+    "reasoning": "Local reports of safety violations indicate immediate operational, legal, and reputational risks. The 'ANOMALY_DETECTED' via satellite imagery suggests a physical discrepancy or unusual activity at the supplier's location, which aligns with potential issues. While 'STATIONARY' GPS telemetry is context-dependent, when combined with the other severe indicators, it could imply operational halts or equipment non-functionality. The convergence of these red flags points to a critical situation.",
+    "action": "{\"action\":\"IMMEDIATE BLOCK: SUPPLIER_A blacklisted.\",\"timestamp\":\"2026-04-08T18:31:28.863Z\",\"status\":\"EXECUTED\"}",
+    "timestamp": "2026-04-08T18:31:28.872Z"
+  }
+]
