@@ -1,8 +1,9 @@
+import dotenv from "dotenv";
+dotenv.config();
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import dotenv from "dotenv";
 import path from "node:path";
 import process from "node:process";
 import fs from "node:fs/promises"; // Import fs

@@ -12,8 +12,8 @@
       "current_price": 8303.19,
       "lat": -47.159814,
       "lng": 102.031871,
-      "status": "OPERATIONAL",
-      "internet_news": "Normal production",
+      "status": "DISRUPTED",
+      "internet_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },
@@ -24,7 +24,7 @@
       "current_price": 6749.27,
       "lat": -16.215386,
       "lng": -109.023034,
-      "status": "BLOCKED",
+      "status": "DISRUPTED",
       "internet_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
@@ -48,8 +48,8 @@
       "current_price": 2053.41,
       "lat": -40.245592,
       "lng": -88.441806,
-      "status": "OPERATIONAL",
-      "internet_news": "Normal production",
+      "status": "DISRUPTED",
+      "internet_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },
@@ -72,8 +72,8 @@
       "current_price": 7372.87,
       "lat": 48.017368,
       "lng": 129.5765,
-      "status": "OPERATIONAL",
-      "internet_news": "Normal production",
+      "status": "DISRUPTED",
+      "internet_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },
@@ -108,8 +108,8 @@
       "current_price": 14376.15,
       "lat": -16.517762,
       "lng": -18.447838,
-      "status": "OPERATIONAL",
-      "internet_news": "Normal production",
+      "status": "DISRUPTED",
+      "internet_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },
@@ -168,8 +168,8 @@
       "current_price": 1105.06,
       "lat": -61.012023,
       "lng": 52.91916,
-      "status": "OPERATIONAL",
-      "internet_news": "Normal production",
+      "status": "DISRUPTED",
+      "internet_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },
