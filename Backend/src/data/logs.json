@@ -1,9 +1,117 @@
 [
   {
-    "supplierId": "SUPPLIER_A",
+    "supplierId": "SUP007",
     "riskLevel": "HIGH",
-    "reasoning": "Local reports of safety violations indicate immediate operational, legal, and reputational risks. The 'ANOMALY_DETECTED' via satellite imagery suggests a physical discrepancy or unusual activity at the supplier's location, which aligns with potential issues. While 'STATIONARY' GPS telemetry is context-dependent, when combined with the other severe indicators, it could imply operational halts or equipment non-functionality. The convergence of these red flags points to a critical situation.",
-    "action": "{\"action\":\"IMMEDIATE BLOCK: SUPPLIER_A blacklisted.\",\"timestamp\":\"2026-04-08T18:31:28.863Z\",\"status\":\"EXECUTED\"}",
-    "timestamp": "2026-04-08T18:31:28.872Z"
+    "reasoning": "SUP007 is NON_COMPLIANT due to detected child labor/illegal activity, a direct violation of the company's rule to 'block anyone with child labour'. Immediate action is required.",
+    "timestamp": "2026-04-08T23:59:17.382Z",
+    "details": {
+      "news": {
+        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "-10.78",
+        "alert": "STABLE"
+      },
+      "compliance": {
+        "supplierId": "SUP007",
+        "status": "NON_COMPLIANT",
+        "risk": "HIGH",
+        "reason": "Detected Child Labor/Illegal Activity"
+      }
+    }
+  },
+  {
+    "supplierId": "SUP006",
+    "riskLevel": "HIGH",
+    "reasoning": "SUP006 is NON_COMPLIANT due to detected child labor, which directly violates company policy to block anyone with child labour.",
+    "timestamp": "2026-04-08T23:59:06.648Z",
+    "details": {
+      "news": {
+        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "41.54",
+        "alert": "PRICE_CRITICAL"
+      },
+      "compliance": {
+        "supplierId": "SUP006",
+        "status": "NON_COMPLIANT",
+        "risk": "HIGH",
+        "reason": "Detected Child Labor/Illegal Activity"
+      }
+    }
+  },
+  {
+    "supplierId": "SUP004",
+    "riskLevel": "HIGH",
+    "reasoning": "SUP004 is NON_COMPLIANT with a HIGH risk due to detected Child Labor, which directly violates company policy to block any supplier involved in child labor. News reports also indicate critical unauthorized labor.",
+    "timestamp": "2026-04-08T23:55:46.182Z",
+    "details": {
+      "news": {
+        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "4.14",
+        "alert": "STABLE"
+      },
+      "compliance": {
+        "supplierId": "SUP004",
+        "status": "NON_COMPLIANT",
+        "risk": "HIGH",
+        "reason": "Detected Child Labor/Illegal Activity"
+      }
+    }
+  },
+  {
+    "supplierId": "SUP002",
+    "riskLevel": "HIGH",
+    "reasoning": "SUP002 is NON_COMPLIANT due to 'Detected Child Labor/Illegal Activity', directly violating the company rule to 'block anyone with child labour'.",
+    "timestamp": "2026-04-08T23:55:05.708Z",
+    "details": {
+      "news": {
+        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "39.44",
+        "alert": "PRICE_CRITICAL"
+      },
+      "compliance": {
+        "supplierId": "SUP002",
+        "status": "NON_COMPLIANT",
+        "risk": "HIGH",
+        "reason": "Detected Child Labor/Illegal Activity"
+      }
+    }
+  },
+  {
+    "supplierId": "SUP001",
+    "riskLevel": "HIGH",
+    "reasoning": "SUP001 has been detected with child labor, which directly violates company policy. Mandated action is to block this supplier immediately.",
+    "timestamp": "2026-04-08T23:55:04.481Z",
+    "details": {
+      "news": {
+        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "45.35",
+        "alert": "PRICE_CRITICAL"
+      },
+      "compliance": {
+        "supplierId": "SUP001",
+        "status": "NON_COMPLIANT",
+        "risk": "HIGH",
+        "reason": "Detected Child Labor/Illegal Activity"
+      }
+    }
   }
 ]
