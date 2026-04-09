@@ -12,7 +12,7 @@ export default function Home() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [hq, setHq] = useState({ lat: 37.7749, lng: -122.4194 }); // Added HQ state
-  const [selectedThreatDetail, setSelectedThreatDetail] = useState<'BLOCKED' | 'DISRUPTED' | 'OPERATIONAL' | null>('BLOCKED');
+  const [selectedThreatDetail, setSelectedThreatDetail] = useState<'BLOCKED' | 'DISRUPTED' | 'OPERATIONAL' | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -70,9 +70,12 @@ export default function Home() {
     });
   };
 
-  const blockedCount = suppliers.filter((s) => s.status === 'BLOCKED').length;
-  const disruptedCount = suppliers.filter((s) => s.status === 'DISRUPTED').length;
-  const operationalCount = suppliers.filter((s) => s.status === 'OPERATIONAL').length;
+  const blockedSuppliers = suppliers.filter((s) => s.status === 'BLOCKED');
+  const disruptedSuppliers = suppliers.filter((s) => s.status === 'DISRUPTED');
+  const operationalSuppliers = suppliers.filter((s) => s.status === 'OPERATIONAL');
+  const blockedCount = blockedSuppliers.length;
+  const disruptedCount = disruptedSuppliers.length;
+  const operationalCount = operationalSuppliers.length;
   const activeThreats = blockedCount + disruptedCount;
   const isGlobalCritical = activeThreats > 0;
   const statusLabel = isProcessing ? 'AGENTS PROCESSING' : isGlobalCritical ? 'CRITICAL' : 'NOMINAL';
@@ -181,41 +184,83 @@ export default function Home() {
                 <p className="mt-2 text-sm text-zinc-500">Stable nodes remaining.</p>
               </button>
             </div>
-            <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-200">
-              {selectedThreatDetail === 'BLOCKED' && (
-                <div>
-                  <div className="text-xs uppercase tracking-[0.32em] text-red-400/80">Blocked details</div>
-                  <p className="mt-3 text-base text-white">These suppliers are actively blocked by the network. Take immediate remediation actions, escalate logistics, and validate alternate routes.</p>
-                  <ul className="mt-4 space-y-2 text-zinc-400">
-                    <li>• Blocked nodes are not reachable by current routes.</li>
-                    <li>• Compliance and financial alarms are escalated.</li>
-                    <li>• Recommended: engage backup suppliers and confirm service continuity.</li>
-                  </ul>
-                </div>
-              )}
-              {selectedThreatDetail === 'DISRUPTED' && (
-                <div>
-                  <div className="text-xs uppercase tracking-[0.32em] text-amber-400/80">Disrupted details</div>
-                  <p className="mt-3 text-base text-white">These suppliers are impacted but still reachable. Monitor routing, latency, and expected recovery time while backup capacity is staged.</p>
-                  <ul className="mt-4 space-y-2 text-zinc-400">
-                    <li>• Disrupted nodes may be delayed or operating at reduced capacity.</li>
-                    <li>• Automated reroute logic is preparing failover execution.</li>
-                    <li>• Recommended: verify inventory buffers and confirm regional alternatives.</li>
-                  </ul>
-                </div>
-              )}
-              {selectedThreatDetail === 'OPERATIONAL' && (
-                <div>
-                  <div className="text-xs uppercase tracking-[0.32em] text-emerald-400/80">Operational details</div>
-                  <p className="mt-3 text-base text-white">These nodes are healthy and carrying load. Use them as stability anchors while impacted suppliers are remediated.</p>
-                  <ul className="mt-4 space-y-2 text-zinc-400">
-                    <li>• Operational nodes are meeting expected throughput.</li>
-                    <li>• Recommended: preserve their uptime and avoid unnecessary reroutes.</li>
-                    <li>• They are the first candidates for additional load if backups are engaged.</li>
-                  </ul>
-                </div>
-              )}
-            </div>
+            {selectedThreatDetail ? (
+              <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-200">
+                {selectedThreatDetail === 'BLOCKED' && (
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.32em] text-red-400/80">Blocked suppliers</div>
+                    <p className="mt-3 text-base text-white">These suppliers are currently blocked and need immediate follow-up.</p>
+                    <div className="mt-4 grid gap-3">
+                      {blockedSuppliers.length ? blockedSuppliers.map((supplier) => (
+                        <div key={supplier.id} className="rounded-2xl border border-red-500/20 bg-red-950/10 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="font-semibold text-white">{supplier.name}</div>
+                              <div className="text-xs text-zinc-500">{supplier.id}</div>
+                            </div>
+                            <span className="rounded-full bg-red-500/10 px-2 py-1 text-[11px] text-red-300 uppercase">{supplier.status}</span>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
+                            <div>Price: ${supplier.current_price ?? 'N/A'}</div>
+                            <div>Location: {supplier.lat}, {supplier.lng}</div>
+                          </div>
+                        </div>
+                      )) : <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-zinc-500">No blocked suppliers are currently reported.</div>}
+                    </div>
+                  </div>
+                )}
+                {selectedThreatDetail === 'DISRUPTED' && (
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.32em] text-amber-400/80">Disrupted suppliers</div>
+                    <p className="mt-3 text-base text-white">These suppliers are disrupted but still available for partial routing and monitoring.</p>
+                    <div className="mt-4 grid gap-3">
+                      {disruptedSuppliers.length ? disruptedSuppliers.map((supplier) => (
+                        <div key={supplier.id} className="rounded-2xl border border-amber-400/20 bg-amber-950/10 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="font-semibold text-white">{supplier.name}</div>
+                              <div className="text-xs text-zinc-500">{supplier.id}</div>
+                            </div>
+                            <span className="rounded-full bg-amber-400/10 px-2 py-1 text-[11px] text-amber-300 uppercase">{supplier.status}</span>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
+                            <div>Price: ${supplier.current_price ?? 'N/A'}</div>
+                            <div>Location: {supplier.lat}, {supplier.lng}</div>
+                          </div>
+                        </div>
+                      )) : <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-zinc-500">No disrupted suppliers are currently reported.</div>}
+                    </div>
+                  </div>
+                )}
+                {selectedThreatDetail === 'OPERATIONAL' && (
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.32em] text-emerald-400/80">Operational suppliers</div>
+                    <p className="mt-3 text-base text-white">These suppliers are healthy and available to carry additional load if needed.</p>
+                    <div className="mt-4 grid gap-3">
+                      {operationalSuppliers.length ? operationalSuppliers.map((supplier) => (
+                        <div key={supplier.id} className="rounded-2xl border border-emerald-400/20 bg-emerald-950/10 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="font-semibold text-white">{supplier.name}</div>
+                              <div className="text-xs text-zinc-500">{supplier.id}</div>
+                            </div>
+                            <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[11px] text-emerald-300 uppercase">{supplier.status}</span>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
+                            <div>Price: ${supplier.current_price ?? 'N/A'}</div>
+                            <div>Location: {supplier.lat}, {supplier.lng}</div>
+                          </div>
+                        </div>
+                      )) : <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-zinc-500">No operational suppliers are currently reported.</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-500">
+                Click a category above to view supplier details for that status.
+              </div>
+            )}
           </div>
         </div>
 
