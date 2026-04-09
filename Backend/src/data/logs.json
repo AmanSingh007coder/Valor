@@ -1,377 +1,85 @@
 [
   {
-    "supplierId": "SUP014",
-    "riskLevel": "LOW",
-    "reasoning": "Supplier SUP014 shows no child labor reports. The highest reported price increase is 15% (from NEWS), which is below the 20% threshold required to trigger the blocking rule. The COMPLIANCE report also confirms 'COMPLIANT' status with 'LOW' risk.",
-    "timestamp": "2026-04-09T05:37:55.482Z",
-    "details": {
-      "news": {
-        "web_news": "INFO: Sudden market volatility causing a 15% price spike.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "2.77",
-        "alert": "STABLE"
-      },
-      "compliance": {
-        "supplierId": "SUP014",
-        "status": "COMPLIANT",
-        "risk": "LOW",
-        "reason": "Clear"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP013",
-    "riskLevel": "LOW",
-    "reasoning": "Supplier SUP013 is not in violation of the company's specific compliance laws. There are no child labor reports, and the reported price increases (15% in NEWS, 0.69% in FINANCE) are both below the 20% threshold. The supplier's official compliance status is 'COMPLIANT' with 'LOW' risk.",
-    "timestamp": "2026-04-09T05:34:01.086Z",
-    "details": {
-      "news": {
-        "web_news": "INFO: Sudden market volatility causing a 15% price spike.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "0.69",
-        "alert": "STABLE"
-      },
-      "compliance": {
-        "supplierId": "SUP013",
-        "status": "COMPLIANT",
-        "risk": "LOW",
-        "reason": "Clear"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP000",
-    "riskLevel": "HIGH",
-    "reasoning": "Critical reports of illegal child labor detected, confirming a high-risk non-compliance status. The specific company rule for automatically blocking suppliers (child labor AND price > 20%) is not fully met because the price increase of -3.21% did not exceed 20%. Despite this, the presence of child labor is a severe violation requiring immediate attention.",
-    "timestamp": "2026-04-09T05:25:48.893Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of illegal child labor detected.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "-3.21",
-        "alert": "STABLE"
-      },
-      "compliance": {
-        "supplierId": "SUP000",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP012",
-    "riskLevel": "LOW",
-    "reasoning": "Supplier SUP012 is compliant with low risk and no child labor reports. Finance delta is stable at -4.33%. Satellite imagery is clear. There is a minor logistics delay due to port congestion, which is an external operational factor and not a direct compliance violation by the supplier.",
-    "timestamp": "2026-04-09T02:49:12.302Z",
-    "details": {
-      "news": {
-        "web_news": "WARNING: Minor logistics delay due to port congestion.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "deviation": "-4.33",
-        "status": "MARKET_STABLE",
-        "risk": "LOW"
-      },
-      "compliance": {
-        "supplierId": "SUP012",
-        "status": "COMPLIANT",
-        "risk": "LOW",
-        "reason": "Clear"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP026",
-    "riskLevel": "LOW",
-    "reasoning": "Supplier SUP026 is compliant with no child labor reports and the finance delta is -6.14%, well within acceptable limits. While there is a minor logistics delay due to port congestion, this does not constitute a law violation or trigger any blocking conditions based on the established rules.",
-    "timestamp": "2026-04-09T02:38:15.906Z",
-    "details": {
-      "news": {
-        "web_news": "WARNING: Minor logistics delay due to port congestion.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "deviation": "-6.14",
-        "status": "MARKET_STABLE",
-        "risk": "LOW"
-      },
-      "compliance": {
-        "supplierId": "SUP026",
-        "status": "COMPLIANT",
-        "risk": "LOW",
-        "reason": "Clear"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP027",
+    "supplierId": "SAM-SUP-001",
+    "supplierName": "Samsung Electro-Mechanics",
     "riskLevel": "MEDIUM",
-    "reasoning": "Initial compliance scan is clear with low risk, and operational logistics are stable. However, the finance data indicates a 19.05% price increase, flagged as 'PRICE_GOUGING_DETECTED'. While this is a significant concern and very close to the 20% blocking threshold, it does not strictly meet the explicit blocking condition of price > 20%. This situation requires immediate attention and further investigation but does not trigger an automatic block based on current rules.",
-    "timestamp": "2026-04-09T02:37:04.456Z",
+    "complianceScore": 65,
+    "reasoning": "Weather disruption detected at supplier location. Satellite data shows OBSCURED conditions. GPS status degraded. Recommend monitoring for next 4-6 hours.",
+    "timestamp": "2026-04-09T14:32:18.000Z",
+    "votes": [
+      {"agent": "News", "vote": "KEEP", "weight": 1},
+      {"agent": "Finance", "vote": "KEEP", "weight": 2},
+      {"agent": "Compliance", "vote": "SHIFT", "weight": 5}
+    ],
+    "simulations": [],
     "details": {
       "news": {
-        "web_news": "INFO: Sudden market volatility causing a 15% price spike.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
+        "web_news": "Reports of minor supply chain delays. Weather disruption in Taiwan."
       },
       "finance": {
-        "deviation": "19.05",
-        "status": "PRICE_GOUGING_DETECTED",
-        "risk": "LOW"
+        "deviation": "15.12",
+        "status": "STABLE"
       },
       "compliance": {
-        "supplierId": "SUP027",
-        "status": "COMPLIANT",
-        "risk": "LOW",
-        "reason": "Clear"
+        "isCompliant": false,
+        "violations": ["WEATHER_RISK: Severe weather detected at supplier location", "GPS_DEGRADED: Communication reliability is compromised"],
+        "score": 65
       }
     }
   },
   {
-    "supplierId": "SUP027",
-    "riskLevel": "MEDIUM",
-    "reasoning": "Minor logistics delay reported due to port congestion. PRICE_GOUGING_DETECTED at 19.05%, which, while not exceeding the 20% blocking threshold, warrants close monitoring and review. Supplier remains compliant with no child labor reports.",
-    "timestamp": "2026-04-09T02:19:42.219Z",
-    "details": {
-      "news": {
-        "web_news": "WARNING: Minor logistics delay due to port congestion.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "deviation": "19.05",
-        "status": "PRICE_GOUGING_DETECTED",
-        "risk": "LOW"
-      },
-      "compliance": {
-        "supplierId": "SUP027",
-        "status": "COMPLIANT",
-        "risk": "LOW",
-        "reason": "Clear"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP028",
+    "supplierId": "SAM-SUP-003",
+    "supplierName": "Foxconn Technology Group",
     "riskLevel": "HIGH",
-    "reasoning": "Supplier SUP028 is NON_COMPLIANT with a HIGH risk due to detected Child Labor/Illegal Activity, as confirmed by both the initial compliance scan and critical web news reports. This constitutes definitive evidence of a law violation, requiring immediate blocking.",
-    "timestamp": "2026-04-09T02:05:16.670Z",
+    "complianceScore": 54,
+    "reasoning": "Critical price escalation detected. Prices increased 26% above base cost. This exceeds threshold of 20%. Finance team flagged as PRICE_GOUGING violation. Recommend switching to secondary supplier.",
+    "timestamp": "2026-04-09T14:15:42.000Z",
+    "votes": [
+      {"agent": "News", "vote": "KEEP", "weight": 1},
+      {"agent": "Finance", "vote": "BLOCK", "weight": 2},
+      {"agent": "Compliance", "vote": "SHIFT", "weight": 5}
+    ],
+    "simulations": [],
     "details": {
       "news": {
-        "web_news": "CRITICAL: Reports of illegal child labor detected.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
+        "web_news": "Prices surged 26% week-over-week. Supply constraints cited."
       },
       "finance": {
-        "deviation": "8.02",
-        "status": "MARKET_STABLE",
-        "risk": "LOW"
+        "deviation": "25.93",
+        "status": "PRICE_GOUGING"
       },
       "compliance": {
-        "supplierId": "SUP028",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
+        "isCompliant": false,
+        "violations": ["PRICE_GOUGING: 25.93% increase (threshold: 20%)"],
+        "score": 54
       }
     }
   },
   {
-    "supplierId": "SUP006",
+    "supplierId": "SAM-SUP-000",
+    "supplierName": "Samsung SDI",
     "riskLevel": "LOW",
-    "reasoning": "Supplier SUP006 is compliant with low risk, and no child labor reports were found. Although there is a reported 15% price spike due to market volatility, this does not meet the >20% threshold required to block the supplier. Weather is clear, and financial delta indicates market stability. No conditions for blocking or marking as disrupted have been met, and no definitive evidence of a law violation is present.",
-    "timestamp": "2026-04-09T02:05:15.095Z",
+    "complianceScore": 92,
+    "reasoning": "Primary supplier operating within normal parameters. Q1 2026 output exceeds targets. Price deviation 17% (within threshold). All compliance checks pass. Status: OPERATIONAL.",
+    "timestamp": "2026-04-09T14:01:05.000Z",
+    "votes": [
+      {"agent": "News", "vote": "KEEP", "weight": 1},
+      {"agent": "Finance", "vote": "KEEP", "weight": 2},
+      {"agent": "Compliance", "vote": "KEEP", "weight": 5}
+    ],
+    "simulations": [],
     "details": {
       "news": {
-        "web_news": "INFO: Sudden market volatility causing a 15% price spike.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
+        "web_news": "Normal production. Q1 2026 output exceeds targets."
       },
       "finance": {
-        "deviation": "4.54",
-        "status": "MARKET_STABLE",
-        "risk": "LOW"
+        "deviation": "17.13",
+        "status": "STABLE"
       },
       "compliance": {
-        "supplierId": "SUP006",
-        "status": "COMPLIANT",
-        "risk": "LOW",
-        "reason": "Clear"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP029",
-    "riskLevel": "HIGH",
-    "reasoning": "Supplier must be blocked immediately. Definitive evidence from both web news intelligence ('CRITICAL: Reports of illegal child labor detected') and initial compliance scan ('Detected Child Labor/Illegal Activity') confirms illegal child labor, which is a severe law violation.",
-    "timestamp": "2026-04-09T02:05:12.932Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of illegal child labor detected.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "deviation": "-8.05",
-        "status": "MARKET_STABLE",
-        "risk": "LOW"
-      },
-      "compliance": {
-        "supplierId": "SUP029",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP005",
-    "riskLevel": "HIGH",
-    "reasoning": "Supplier SUP005 is NON_COMPLIANT with high risk due to detected illegal child labor, which is critically confirmed by web news reports. This constitutes a definitive law violation.",
-    "timestamp": "2026-04-09T02:04:43.991Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of illegal child labor detected.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "deviation": "-3.66",
-        "status": "MARKET_STABLE",
-        "risk": "LOW"
-      },
-      "compliance": {
-        "supplierId": "SUP005",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP003",
-    "riskLevel": "HIGH",
-    "reasoning": "Detected Child Labor/Illegal Activity, as explicitly stated in compliance reports and corroborated by news reports of unauthorized labor. Although the price increase (10.06%) does not meet the >20% threshold of the specific blocking rule, the presence of child labor represents an immediate and high compliance risk.",
-    "timestamp": "2026-04-09T01:21:24.658Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "10.06",
-        "alert": "PRICE_CRITICAL"
-      },
-      "compliance": {
-        "supplierId": "SUP003",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP002",
-    "riskLevel": "HIGH",
-    "reasoning": "Supplier SUP002 is non-compliant due to detected child labor/illegal activity, as confirmed by the COMPLIANCE report. As per company policy, this supplier must be blocked.",
-    "timestamp": "2026-04-09T01:21:21.122Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "2.23",
-        "alert": "STABLE"
-      },
-      "compliance": {
-        "supplierId": "SUP002",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP001",
-    "riskLevel": "HIGH",
-    "reasoning": "Detected Child Labor/Illegal Activity (supplier is NON_COMPLIANT and HIGH risk). While the specific blocking rule's price condition (>20% increase) was not met, the presence of child labor is a critical compliance violation.",
-    "timestamp": "2026-04-09T01:21:19.551Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "-7.96",
-        "alert": "STABLE"
-      },
-      "compliance": {
-        "supplierId": "SUP001",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP000",
-    "riskLevel": "HIGH",
-    "reasoning": "Detected Child Labor/Illegal Activity leading to NON_COMPLIANT status and HIGH risk, as explicitly stated in compliance reports and supported by critical news reports of unauthorized labor. The specific company rule for a mandated block (child labor AND price increase > 20%) is not fully met due to the price decrease (-3.21%), but the severity of child labor necessitates a HIGH risk assessment.",
-    "timestamp": "2026-04-09T01:21:04.673Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "-3.21",
-        "alert": "STABLE"
-      },
-      "compliance": {
-        "supplierId": "SUP000",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
-      }
-    }
-  },
-  {
-    "supplierId": "SUP007",
-    "riskLevel": "HIGH",
-    "reasoning": "Detected Child Labor/Illegal Activity (NON_COMPLIANT, HIGH risk) confirmed. Price increase is 18.48%, which is below the 20% threshold. Therefore, the specific company rule for automatic blocking is not fully met, but the child labor issue remains a critical concern.",
-    "timestamp": "2026-04-09T01:20:02.937Z",
-    "details": {
-      "news": {
-        "web_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
-        "gps_telemetry": "MOVING",
-        "satellite_imagery": "CLEAR"
-      },
-      "finance": {
-        "price_increase_percent": "18.48",
-        "alert": "PRICE_CRITICAL"
-      },
-      "compliance": {
-        "supplierId": "SUP007",
-        "status": "NON_COMPLIANT",
-        "risk": "HIGH",
-        "reason": "Detected Child Labor/Illegal Activity"
+        "isCompliant": true,
+        "violations": [],
+        "score": 92
       }
     }
   }

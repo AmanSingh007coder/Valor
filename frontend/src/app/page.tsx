@@ -1,250 +1,393 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { Activity, Cpu, CheckCircle2, TrendingUp, ShieldAlert, Server, Box } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
-
+ 
 const MapWrapper = dynamic(() => import('@/components/MapWrapper'), { ssr: false });
-
-const getStatusStyles = (status: string) => {
-  switch (status) {
-    case 'BLOCKED':
-      return "border-red-500/50 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]";
-    case 'DISRUPTED':
-      return "border-amber-500/50 bg-amber-500/10 text-amber-400";
-    case 'OPERATIONAL':
-      return "border-emerald-500/20 bg-emerald-500/5 text-emerald-500";
-    case 'CHILD_LABOR_RISK':
-      return "border-red-500/50 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]";
-    case 'PRICE_GOUGING':
-      return "border-yellow-500/50 bg-yellow-500/10 text-yellow-400";
-    case 'WEATHER_STRIKE':
-      return "border-blue-500/50 bg-blue-500/10 text-blue-400";
-    case 'UNDER_AUDIT':
-      return "border-cyan-500/50 bg-cyan-500/10 text-cyan-400 animate-pulse";
-    default:
-      return "border-emerald-500/20 bg-emerald-500/5 text-emerald-500";
-  }
-}
-
+ 
 export default function Home() {
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [hq, setHq] = useState({ lat: 37.7749, lng: -122.4194 });
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const getDecisionReason = (supplier: any) => {
-    const latestSupplierLog = logs.find((log) => log.supplierId === supplier.id);
-
-    if (latestSupplierLog?.reasoning) {
-      return latestSupplierLog.reasoning;
-    }
-
-    if (supplier.internet_news) {
-      return supplier.internet_news;
-    }
-
-    if (supplier.status === 'OPERATIONAL') {
-      return 'No active threats detected. Supplier remains operational under current risk thresholds.';
-    }
-
-    return `Supplier marked as ${String(supplier.status || 'UNDER_REVIEW').replace('_', ' ')} based on latest risk evaluation.`;
-  };
-
+  const [suppliers, setSuppliers]     = useState<any[]>([]);
+  const [logs, setLogs]               = useState<any[]>([]);
+  const [hq, setHq]                   = useState({ lat: 37.33, lng: 126.58 });
+  const [activeNode, setActiveNode]   = useState("");
+  const [hierarchy, setHierarchy]     = useState<any>(null);
+  const [currentPath, setCurrentPath] = useState<string[]>([]);
+  const [disruptions, setDisruptions] = useState<any[]>([]);
+  const [orchTab, setOrchTab]         = useState<'visual'|'stream'>('visual');
+  const logScrollRef = useRef<HTMLDivElement>(null);
+ 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const stateRes = await fetch('http://localhost:5000/api/state');
+        const stateRes  = await fetch('http://localhost:5000/api/state');
         const stateData = await stateRes.json();
         setSuppliers(stateData.suppliers || []);
         if (stateData.hq) setHq(stateData.hq);
-
+        setActiveNode(stateData.active_node || "");
+        setHierarchy(stateData.hierarchy || null);
+        setCurrentPath(stateData.current_path || []);
+        setDisruptions(stateData.disruption_history || []);
         const logsRes = await fetch('http://localhost:5000/api/logs');
-        const logsData = await logsRes.json();
-        setLogs(logsData);
-        if (logsData[0]?.riskLevel === "HIGH" && isProcessing) setIsProcessing(false);
+        setLogs(await logsRes.json());
       } catch (err) { console.log("Syncing..."); }
     };
+    fetchData();
     const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
-  }, [isProcessing]);
-
-  const simulateDisaster = async (id: string) => {
-    setIsProcessing(true);
-    const scenarios = [
-      { news: "CRITICAL: Reports of illegal child labor detected.", type: "LABOR" },
-      { news: "WARNING: Minor logistics delay due to port congestion.", type: "LOGISTICS" },
-      { news: "INFO: Sudden market volatility causing a 15% price spike.", type: "FINANCE" }
-    ];
-    const picked = scenarios[Math.floor(Math.random() * scenarios.length)];
-    await fetch('http://localhost:5000/api/trigger-disaster', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ supplierId: id, news: picked.news })
-    });
-  };
-
-  const operationalCount = suppliers.filter((s) => s.status === 'OPERATIONAL').length;
-  const riskCount = suppliers.filter((s) => s.status !== 'OPERATIONAL').length;
-  const statusLabel = isProcessing ? 'AGENTS PROCESSING' : riskCount > 0 ? 'CRITICAL' : 'NOMINAL';
-
+  }, []);
+ 
+  useEffect(() => {
+    if (logScrollRef.current && orchTab === 'stream') {
+      logScrollRef.current.scrollLeft = logScrollRef.current.scrollWidth;
+    }
+  }, [logs, orchTab]);
+ 
+  const activeSup    = suppliers.find(s => s.id === activeNode || s.name.toLowerCase() === activeNode?.toLowerCase());
+  const primarySup   = suppliers.find(s => s.id === hierarchy?.primary);
+  const secondarySup = suppliers.find(s => s.id === hierarchy?.secondary);
+  const tertiarySup  = suppliers.find(s => s.id === hierarchy?.tertiary);
+ 
+  const isCritical = (st?: string) => !!(st?.includes('VIOLATION') || st?.includes('RISK') || st?.includes('BLOCKED'));
+  const isWarning  = (st?: string) => !!(st?.includes('GOUGING')   || st?.includes('WARNING'));
+ 
+  const tierDotColor = (tier: string) =>
+    tier === 'primary' ? '#10b981' : tier === 'secondary' ? '#f59e0b' : '#f97316';
+ 
+  // ── Orchestration visual board metrics ──
+  const totalAlerts     = logs.length;
+  const highCount       = logs.filter(l => l.riskLevel === 'HIGH').length;
+  const medCount        = logs.filter(l => l.riskLevel === 'MEDIUM').length;
+  const lowCount        = Math.max(0, totalAlerts - highCount - medCount);
+  const highPct         = totalAlerts ? Math.round(highCount / totalAlerts * 100) : 0;
+  const medPct          = totalAlerts ? Math.round(medCount  / totalAlerts * 100) : 0;
+  const lowPct          = totalAlerts ? Math.round(lowCount  / totalAlerts * 100) : 100;
+  const suppWithAlerts  = suppliers.filter(s => isCritical(s.status) || isWarning(s.status)).length;
+  const impactMap       = logs.reduce<Record<string,number>>((acc, l) => { acc[l.supplierName] = (acc[l.supplierName]||0)+1; return acc; }, {});
+  const mostImpacted    = Object.keys(impactMap).sort((a,b)=>impactMap[b]-impactMap[a])[0] || 'N/A';
+  const systemState     = isCritical(activeSup?.status) ? 'Critical — action required' : isWarning(activeSup?.status) ? 'Warning — monitor closely' : 'System is stable';
+  const stateColor      = isCritical(activeSup?.status) ? '#ef4444' : isWarning(activeSup?.status) ? '#f59e0b' : '#10b981';
+  const latestLog       = logs[logs.length - 1];
+ 
+  // SVG donut
+  const R    = 38;
+  const CIRC = 2 * Math.PI * R;
+ 
   return (
-    <div className="min-h-screen relative overflow-y-auto bg-[#05070f] text-zinc-100 flex flex-col font-sans selection:bg-cyan-500/25">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.18),transparent_35%)]" />
-      <div className="pointer-events-none absolute right-20 top-28 h-72 w-72 rounded-full bg-violet-500/12 blur-3xl" />
-      <div className="pointer-events-none absolute left-12 top-56 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
-
-      <header className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl sticky top-4 z-50 mx-6 mb-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-cyan-300" />
-              <span className="font-display text-base font-black uppercase tracking-[0.42em] text-cyan-100 drop-shadow-[0_0_16px_rgba(34,211,238,0.45)] sm:text-lg">
-                VALOR
-              </span>
-            </div>
-            <div className="max-w-2xl space-y-3">
-              <h1 className="bg-gradient-to-r from-cyan-100 via-white to-cyan-200 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">Supply chain resilience redesigned for operators.</h1>
-              <p className="text-sm leading-6 text-zinc-400">Monitor threat vectors, reroute impacted capacity, and keep all teams aligned from a single polished command center.</p>
-            </div>
+    <div style={{ height:'100vh', display:'flex', flexDirection:'column', overflow:'hidden', background:'#060b15', fontFamily:"'Inter',-apple-system,sans-serif", color:'#c8dff5' }}>
+ 
+      {/* ══ HEADER ══ */}
+      <header style={{ background:'#0c1522', borderBottom:'1px solid rgba(255,255,255,0.06)', padding:'0 22px', height:'52px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'9px' }}>
+          <div style={{ width:'7px', height:'7px', borderRadius:'50%', background:'#06b6d4', boxShadow:'0 0 8px rgba(6,182,212,0.9)', animation:'valuepulse 2s infinite' }} />
+          <span style={{ fontSize:'14px', fontWeight:700, letterSpacing:'0.14em', color:'#f0f6ff', textTransform:'uppercase' }}>Valor</span>
+          <span style={{ fontSize:'11px', color:'#1e3050', marginLeft:'2px', letterSpacing:'0.06em' }}>/ Supply Chain OS</span>
+        </div>
+ 
+        <div style={{ display:'flex', alignItems:'center', gap:'7px' }}>
+          {/* Active vector pill */}
+          <div style={{ display:'flex', alignItems:'center', gap:'7px', padding:'4px 13px', background: isCritical(activeSup?.status) ? 'rgba(239,68,68,0.08)' : 'rgba(6,182,212,0.08)', border:`1px solid ${isCritical(activeSup?.status) ? 'rgba(239,68,68,0.28)' : 'rgba(6,182,212,0.28)'}`, borderRadius:'20px' }}>
+            <div style={{ width:'6px', height:'6px', borderRadius:'50%', background: isCritical(activeSup?.status)?'#ef4444':'#06b6d4', boxShadow:`0 0 6px ${isCritical(activeSup?.status)?'rgba(239,68,68,0.8)':'rgba(6,182,212,0.8)'}` }} />
+            <span style={{ fontSize:'11px', fontWeight:600, color: isCritical(activeSup?.status)?'#f87171':'#67e8f9' }}>{activeSup?.name || 'Initializing'}</span>
+            <span style={{ fontSize:'9px', color:'#253550' }}>Active Vector</span>
           </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-2xl border border-cyan-500/15 bg-zinc-950/80 px-4 py-3 text-sm text-zinc-300 shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
-              <div className="text-xs font-bold uppercase tracking-[0.28em] text-cyan-200">Operational Nodes</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{operationalCount}/{suppliers.length || 1}</div>
-            </div>
-            <div className={`rounded-2xl border px-4 py-3 text-sm shadow-[0_20px_50px_rgba(0,0,0,0.2)] ${statusLabel === 'CRITICAL' ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'}`}>
-              <div className="text-xs font-bold uppercase tracking-[0.28em]">{statusLabel}</div>
-              <div className="mt-2 text-2xl font-semibold">{riskCount} Active</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const target = suppliers.find((s) => s.status === 'OPERATIONAL');
-                if (target) simulateDisaster(target.id);
-              }}
-              disabled={isProcessing || operationalCount === 0}
-              className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_20px_50px_rgba(6,182,212,0.25)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isProcessing ? 'Processing...' : 'Simulate Disaster'}
-            </button>
+          {/* Compliance */}
+          <div style={{ padding:'4px 12px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.22)', borderRadius:'20px' }}>
+            <span style={{ fontSize:'11px', fontWeight:700, color:'#a78bfa' }}>{activeSup?.compliance_score ?? '—'}%</span>
+            <span style={{ fontSize:'9px', color:'#253550', marginLeft:'5px' }}>Compliance</span>
           </div>
+          {disruptions.length > 0 && (
+            <div style={{ display:'flex', alignItems:'center', gap:'5px', padding:'4px 11px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.22)', borderRadius:'20px' }}>
+              <AlertTriangle size={11} style={{ color:'#f87171' }} />
+              <span style={{ fontSize:'10px', color:'#f87171', fontWeight:600 }}>{disruptions.length} Disruption{disruptions.length>1?'s':''}</span>
+            </div>
+          )}
+        </div>
+ 
+        <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+          <div style={{ width:'6px', height:'6px', borderRadius:'50%', background:'#10b981', animation:'valuepulse 1.5s infinite' }} />
+          <span style={{ fontSize:'10px', fontWeight:700, letterSpacing:'0.1em', color:'#34d399', textTransform:'uppercase' }}>Live</span>
         </div>
       </header>
-
-      <main className="flex-1 grid gap-6 p-4 px-6">
-        <div className="grid gap-6 xl:grid-cols-[2.3fr_1fr]">
-          <div className="rounded-[1.6rem] border border-cyan-300/25 ring-1 ring-inset ring-cyan-200/10 bg-slate-950/75 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35),0_0_100px_rgba(6,182,212,0.30),0_0_140px_rgba(59,130,246,0.20)] overflow-hidden">
-            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.3em] text-cyan-200">Live network map</p>
-                <h2 className="mt-2 bg-gradient-to-r from-cyan-100 to-white bg-clip-text text-2xl font-extrabold text-transparent">Operational footprint</h2>
-              </div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs uppercase tracking-[0.28em] text-cyan-200 shadow-sm">
-                <CheckCircle2 className="h-4 w-4 text-cyan-400" /> {statusLabel}
-              </span>
-            </div>
-
-            <div className="relative h-[520px] overflow-hidden rounded-[1.35rem] border border-cyan-900/50 ring-1 ring-inset ring-cyan-200/10 bg-[#02050b] shadow-inner">
-              <MapWrapper suppliers={suppliers} hq={hq} />
-              <div className="absolute left-5 top-5 rounded-2xl border border-white/10 bg-black/60 px-3 py-3 text-xs text-zinc-300 backdrop-blur-md shadow-lg">
-                <div className="font-bold uppercase tracking-[0.24em] text-cyan-200">Legend</div>
-                <div className="mt-3 flex flex-col gap-2">
-                  <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> HQ</div>
-                  <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Operational</div>
-                  <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /> Disrupted</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <aside>
-            <div className="rounded-[1.6rem] border border-cyan-300/30 ring-1 ring-inset ring-cyan-200/10 bg-[linear-gradient(160deg,rgba(8,25,38,0.96),rgba(6,14,28,0.9)_45%,rgba(35,18,53,0.75))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35),0_0_100px_rgba(6,182,212,0.32),0_0_150px_rgba(168,85,247,0.24)]">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.3em] text-fuchsia-200">Supplier directory</p>
-                  <h2 className="mt-2 bg-gradient-to-r from-fuchsia-100 via-white to-cyan-100 bg-clip-text text-xl font-extrabold text-transparent">Select a target</h2>
-                </div>
-                <span className="rounded-full border border-fuchsia-300/30 bg-fuchsia-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.28em] text-fuchsia-100">Interactive</span>
-              </div>
-
-              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-2">
-                {suppliers.length ? (
-                  suppliers.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => simulateDisaster(s.id)}
-                      disabled={isProcessing}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left transition duration-200 hover:scale-[1.01] hover:shadow-[0_0_24px_rgba(34,211,238,0.18)] ${getStatusStyles(s.status)}`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.28em] text-cyan-100/90">{s.id}</p>
-                          <p className="mt-1 text-sm font-semibold text-white">{s.name}</p>
-                        </div>
-                        <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${s.status === 'OPERATIONAL' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
-                          {s.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
-                        <div>Price: ${s.current_price ?? 'N/A'}</div>
-                        <div>Location: {s.lat}, {s.lng}</div>
-                      </div>
-                      <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-2.5">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-200">Decision reason</p>
-                        <p className="mt-1 text-xs leading-5 text-zinc-200">{getDecisionReason(s)}</p>
-                      </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-center text-sm text-zinc-500">Waiting for supplier telemetry…</div>
-                )}
-              </div>
-            </div>
-          </aside>
-        </div>
-
-        <div className="rounded-[1.6rem] border border-cyan-300/25 ring-1 ring-inset ring-cyan-200/10 bg-slate-950/75 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35),0_0_100px_rgba(6,182,212,0.30),0_0_140px_rgba(59,130,246,0.20)]">
-          <div className="mb-5 flex items-center justify-between">
-              <div>
-              <p className="text-sm font-bold uppercase tracking-[0.3em] text-cyan-200">Orchestration log</p>
-              <h2 className="mt-2 bg-gradient-to-r from-cyan-100 to-white bg-clip-text text-xl font-extrabold text-transparent">Decision stream</h2>
-            </div>
-            <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-cyan-200">Live</span>
-          </div>
-
-          <div aria-live="polite" aria-atomic="true" className="max-h-[380px] overflow-y-auto rounded-[1.35rem] border border-white/10 bg-black/20 p-3 text-sm text-zinc-300">
-            {logs.length ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                {logs.map((log, i) => (
-                  <motion.article
-                    key={i}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-3 shadow-inner"
-                  >
-                    <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-cyan-300/80">
-                      <span>{log.supplierId || 'UNKNOWN'}</span>
-                      <span>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ''}</span>
+ 
+      {/* ══ MAP + SIDEBAR ══ */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+ 
+        {/* Map */}
+        <div style={{ flex:1, position:'relative', background:'#060b15', overflow:'hidden' }}>
+          <MapWrapper suppliers={suppliers} hq={hq} activeNode={activeNode} hierarchy={hierarchy} />
+ 
+          {/* Hierarchy legend */}
+          <div style={{ position:'absolute', bottom:'16px', left:'16px', zIndex:1000, background:'rgba(6,11,21,0.94)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'12px 14px', backdropFilter:'blur(14px)', minWidth:'190px' }}>
+            <p style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.13em', color:'#253550', textTransform:'uppercase', marginBottom:'9px' }}>Supply Chain Hierarchy</p>
+            {[
+              { tier:'primary',   sup:primarySup,   label:'Primary'   },
+              { tier:'secondary', sup:secondarySup, label:'Secondary' },
+              { tier:'tertiary',  sup:tertiarySup,  label:'Tertiary'  },
+            ].filter(t => t.sup).map(({ tier, sup, label }) => {
+              const isAct = activeNode === hierarchy?.[tier];
+              const tc    = tierDotColor(tier);
+              return (
+                <div key={tier} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'6px 8px', marginBottom:'4px', borderRadius:'8px', background: isAct ? 'rgba(6,182,212,0.07)' : 'rgba(255,255,255,0.02)', border:`1px solid ${isAct ? 'rgba(6,182,212,0.2)' : 'rgba(255,255,255,0.04)'}`, transition:'all 0.3s' }}>
+                  <div style={{ width:'7px', height:'7px', borderRadius:'50%', background:tc, flexShrink:0, boxShadow:`0 0 6px ${tc}88` }} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <span style={{ fontSize:'9px', fontWeight:700, color:'#2d4060', textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</span>
+                      {sup?.status && (
+                        <span style={{ fontSize:'8px', fontWeight:700, padding:'1px 5px', borderRadius:'3px', background: isCritical(sup.status)?'rgba(239,68,68,0.13)':'rgba(16,185,129,0.1)', color: isCritical(sup.status)?'#f87171':'#34d399' }}>{sup.status}</span>
+                      )}
                     </div>
-                    <p className="mt-2 text-sm text-zinc-100">{log.reasoning}</p>
-                    {log.details && (
-                      <div className="mt-3 grid gap-2 text-[11px] text-zinc-400 sm:grid-cols-2">
-                        {log.details.finance && <div className="rounded-2xl bg-white/5 p-2">Finance: {log.details.finance.status ?? log.details.finance.alert ?? 'N/A'}</div>}
-                        {log.details.compliance?.status && <div className="rounded-2xl bg-white/5 p-2">Compliance: {log.details.compliance.status}</div>}
-                      </div>
-                    )}
-                  </motion.article>
+                    <span style={{ fontSize:'11px', color:'#c8dff5', fontWeight:600 }}>{sup?.name}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+ 
+          {/* Disruptions */}
+          {disruptions.length > 0 && (
+            <div style={{ position:'absolute', top:'14px', right:'14px', zIndex:1000, background:'rgba(6,11,21,0.94)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:'12px', padding:'10px 13px', backdropFilter:'blur(12px)', maxWidth:'210px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'5px', marginBottom:'7px' }}>
+                <AlertTriangle size={11} style={{ color:'#f87171' }} />
+                <span style={{ fontSize:'9px', fontWeight:700, color:'#f87171', textTransform:'uppercase', letterSpacing:'0.1em' }}>Disruptions</span>
+              </div>
+              {disruptions.slice(0,3).map((d,i) => (
+                <div key={i} style={{ marginBottom:'5px' }}>
+                  <div style={{ fontSize:'11px', fontWeight:600, color:'#f87171' }}>{d.supplierName}</div>
+                  <div style={{ fontSize:'9px', color:'#2d4060' }}>{d.previousActive} → {d.newActive}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+ 
+        {/* Sidebar */}
+        <div style={{ width:'282px', background:'#0c1522', borderLeft:'1px solid rgba(255,255,255,0.06)', display:'flex', flexDirection:'column', overflow:'hidden', flexShrink:0 }}>
+          <div style={{ padding:'11px 15px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', gap:'7px' }}>
+            <div style={{ width:'6px', height:'6px', borderRadius:'50%', background:'#06b6d4' }} />
+            <span style={{ fontSize:'10px', fontWeight:700, letterSpacing:'0.1em', color:'#2d4060', textTransform:'uppercase' }}>Node Cluster Status</span>
+            <span style={{ marginLeft:'auto', fontSize:'10px', fontWeight:700, background:'rgba(6,182,212,0.1)', color:'#67e8f9', padding:'2px 7px', borderRadius:'8px', border:'1px solid rgba(6,182,212,0.2)' }}>{suppliers.length}</span>
+          </div>
+ 
+          <div style={{ flex:1, overflowY:'auto', padding:'7px' }} className="scrollbar-hide">
+            {suppliers.length === 0 && (
+              <p style={{ padding:'22px 14px', textAlign:'center', fontSize:'11px', color:'#1e3050', fontStyle:'italic' }}>Awaiting supplier data…</p>
+            )}
+            {suppliers.map(s => {
+              const isActive = !!(activeNode && (s.name.toLowerCase() === activeNode.toLowerCase() || s.id === activeNode));
+              const bad  = isCritical(s.status);
+              const warn = isWarning(s.status);
+              const dot  = bad ? '#ef4444' : warn ? '#f59e0b' : '#10b981';
+              return (
+                <motion.div key={s.id} initial={{ opacity:0.5 }} animate={{ opacity: isActive ? 1 : 0.6 }}
+                  style={{ marginBottom:'5px', padding:'9px 11px', borderRadius:'10px', border:`1px solid ${isActive ? 'rgba(6,182,212,0.26)' : 'rgba(255,255,255,0.04)'}`, background: isActive ? 'rgba(6,182,212,0.05)' : 'rgba(255,255,255,0.02)', transition:'all 0.4s' }}
+                >
+                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'5px' }}>
+                    <div style={{ width:'6px', height:'6px', borderRadius:'50%', background:dot, boxShadow:`0 0 5px ${dot}`, flexShrink:0 }} />
+                    <span style={{ fontSize:'12px', fontWeight:600, color:'#c8dff5', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</span>
+                    <span style={{ fontSize:'8px', fontWeight:700, padding:'2px 5px', borderRadius:'4px', textTransform:'uppercase', letterSpacing:'0.04em', background: bad?'rgba(239,68,68,0.11)':warn?'rgba(245,158,11,0.11)':'rgba(16,185,129,0.09)', color: bad?'#f87171':warn?'#fbbf24':'#34d399', flexShrink:0 }}>
+                      {s.status === 'OPERATIONAL' ? 'Nominal' : (s.status||'').replace(/_/g,' ')}
+                    </span>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+                    <div style={{ width:'5px', height:'5px', borderRadius:'50%', background:tierDotColor(s.tier||''), flexShrink:0 }} />
+                    <span style={{ fontSize:'9px', color:'#2d4060', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:600 }}>{s.tier||'unknown'}</span>
+                    <span style={{ fontSize:'9px', color:'#1e3050', marginLeft:'auto' }}>Compliance: <span style={{ color:'#67e8f9', fontWeight:600 }}>{s.compliance_score??'N/A'}%</span></span>
+                  </div>
+                  <div style={{ marginTop:'5px', height:'2px', background:'rgba(255,255,255,0.05)', borderRadius:'2px', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${s.compliance_score||0}%`, background:(s.compliance_score||0)>70?'#06b6d4':(s.compliance_score||0)>40?'#f59e0b':'#ef4444', borderRadius:'2px', transition:'width 0.5s' }} />
+                  </div>
+                  {s.internet_news && !s.internet_news.includes('Normal') && (
+                    <p style={{ marginTop:'5px', fontSize:'9px', color:'#2d4060', lineHeight:1.5, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' as any }}>{s.internet_news}</p>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+ 
+      {/* ══ ORCHESTRATION LAYER ══ */}
+      <div style={{ height:'234px', background:'#090f1c', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', flexDirection:'column', flexShrink:0, overflow:'hidden' }}>
+ 
+        {/* Panel header */}
+        <div style={{ padding:'7px 18px', borderBottom:'1px solid rgba(255,255,255,0.05)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+            <div style={{ width:'6px', height:'6px', borderRadius:'50%', background:'#10b981', animation:'valuepulse 1.5s infinite' }} />
+            <span style={{ fontSize:'10px', fontWeight:700, letterSpacing:'0.12em', color:'#2d4060', textTransform:'uppercase' }}>Orchestration Log</span>
+            <span style={{ fontSize:'10px', color:'#1a2a40' }}>/ Decision Stream</span>
+          </div>
+ 
+          {/* Tab switcher */}
+          <div style={{ display:'flex', gap:'3px', background:'rgba(255,255,255,0.03)', padding:'3px', borderRadius:'9px', border:'1px solid rgba(255,255,255,0.05)' }}>
+            {(['visual','stream'] as const).map(tab => (
+              <button key={tab} onClick={()=>setOrchTab(tab)} style={{ padding:'4px 11px', borderRadius:'6px', fontSize:'9px', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', cursor:'pointer', border:'none', background: orchTab===tab ? 'rgba(6,182,212,0.14)' : 'transparent', color: orchTab===tab ? '#67e8f9' : '#253550', transition:'all 0.2s' }}>
+                {tab === 'visual' ? 'Visual Board' : 'Decision Stream'}
+              </button>
+            ))}
+          </div>
+ 
+          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+            <span style={{ fontSize:'9px', color:'#1a2a40' }}>Total Events: {logs.length}</span>
+            <div style={{ padding:'2px 8px', background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.18)', borderRadius:'7px', fontSize:'9px', fontWeight:700, color:'#34d399', letterSpacing:'0.06em' }}>Live</div>
+          </div>
+        </div>
+ 
+        {/* ── Visual Board Tab ── */}
+        {orchTab === 'visual' && (
+          <div style={{ flex:1, display:'flex', gap:'10px', padding:'10px 16px', overflow:'hidden' }}>
+ 
+            {/* Donut + risk bars */}
+            <div style={{ width:'175px', flexShrink:0, background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'12px', padding:'11px 13px', display:'flex', flexDirection:'column' }}>
+              <p style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.1em', color:'#1a2a40', textTransform:'uppercase', marginBottom:'6px' }}>Total Alerts</p>
+              <div style={{ display:'flex', justifyContent:'center', marginBottom:'8px' }}>
+                <svg width="92" height="92" viewBox="0 0 92 92">
+                  {/* track */}
+                  <circle cx="46" cy="46" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="9" />
+                  {/* green (low) — full ring base */}
+                  <circle cx="46" cy="46" r={R} fill="none" stroke="#10b981" strokeWidth="9"
+                    strokeDasharray={`${CIRC * lowPct / 100} ${CIRC}`}
+                    strokeDashoffset={0}
+                    transform="rotate(-90 46 46)"
+                    strokeLinecap="butt"
+                    style={{ transition:'stroke-dasharray 0.6s' }}
+                  />
+                  {/* amber (medium) — on top */}
+                  <circle cx="46" cy="46" r={R} fill="none" stroke="#f59e0b" strokeWidth="9"
+                    strokeDasharray={`${CIRC * (highPct + medPct) / 100} ${CIRC}`}
+                    strokeDashoffset={0}
+                    transform="rotate(-90 46 46)"
+                    strokeLinecap="butt"
+                    style={{ transition:'stroke-dasharray 0.6s' }}
+                  />
+                  {/* red (high) — topmost */}
+                  <circle cx="46" cy="46" r={R} fill="none" stroke="#ef4444" strokeWidth="9"
+                    strokeDasharray={`${CIRC * highPct / 100} ${CIRC}`}
+                    strokeDashoffset={0}
+                    transform="rotate(-90 46 46)"
+                    strokeLinecap="butt"
+                    style={{ transition:'stroke-dasharray 0.6s' }}
+                  />
+                  <text x="46" y="42" textAnchor="middle" fill="#f0f6ff" fontSize="18" fontWeight="700" fontFamily="Inter,-apple-system,sans-serif">{totalAlerts}</text>
+                  <text x="46" y="54" textAnchor="middle" fill="#253550" fontSize="7" fontFamily="Inter,-apple-system,sans-serif" letterSpacing="1">ALERTS</text>
+                </svg>
+              </div>
+              {[
+                { label:'High risk',   count:highCount, pct:highPct, color:'#ef4444' },
+                { label:'Medium risk', count:medCount,  pct:medPct,  color:'#f59e0b' },
+                { label:'Low risk',    count:lowCount,  pct:lowPct,  color:'#10b981' },
+              ].map(row => (
+                <div key={row.label} style={{ marginBottom:'5px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'2px' }}>
+                    <span style={{ fontSize:'9px', color:row.color }}>{row.label}</span>
+                    <span style={{ fontSize:'9px', color:'#2d4060' }}>{row.count} ({row.pct}%)</span>
+                  </div>
+                  <div style={{ height:'2px', background:'rgba(255,255,255,0.05)', borderRadius:'2px', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${row.pct}%`, background:row.color, borderRadius:'2px', transition:'width 0.5s' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+ 
+            {/* Middle col: state + alerts count + most impacted */}
+            <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'7px', minWidth:0 }}>
+              <div style={{ display:'flex', gap:'7px', flex:'0 0 auto' }}>
+                {/* Current state */}
+                <div style={{ flex:2, background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'11px', padding:'10px 13px', display:'flex', flexDirection:'column', justifyContent:'space-between' }}>
+                  <p style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.1em', color:'#1a2a40', textTransform:'uppercase', marginBottom:'5px' }}>Current State</p>
+                  <div>
+                    <p style={{ fontSize:'15px', fontWeight:700, color:stateColor, marginBottom:'2px', lineHeight:1.2 }}>{systemState}</p>
+                    <p style={{ fontSize:'9px', color:'#1a2a40' }}>Updated at {activeSup ? new Date().toLocaleTimeString() : 'N/A'}</p>
+                  </div>
+                </div>
+                {/* Suppliers with alerts */}
+                <div style={{ flex:1, background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'11px', padding:'10px 13px', display:'flex', flexDirection:'column', justifyContent:'space-between' }}>
+                  <p style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.1em', color:'#1a2a40', textTransform:'uppercase', marginBottom:'5px' }}>Suppliers with Alerts</p>
+                  <p style={{ fontSize:'20px', fontWeight:700, color: suppWithAlerts > 0 ? '#f59e0b' : '#c8dff5', lineHeight:1 }}>
+                    {suppWithAlerts}
+                    <span style={{ fontSize:'11px', color:'#2d4060', fontWeight:400, marginLeft:'4px' }}>supplier{suppWithAlerts !== 1 ? 's' : ''}</span>
+                  </p>
+                </div>
+              </div>
+ 
+              {/* Most impacted */}
+              <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'11px', padding:'9px 13px', flex:'0 0 auto' }}>
+                <p style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.1em', color:'#1a2a40', textTransform:'uppercase', marginBottom:'3px' }}>Most Impacted Supplier</p>
+                <p style={{ fontSize:'13px', fontWeight:600, color:'#c8dff5' }}>{mostImpacted}</p>
+              </div>
+            </div>
+ 
+            {/* Summary snapshot */}
+            <div style={{ width:'270px', flexShrink:0, background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'12px', padding:'11px 13px', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'9px' }}>
+                <p style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.1em', color:'#1a2a40', textTransform:'uppercase' }}>Summary Snapshot</p>
+                <span style={{ fontSize:'9px', color:'#1a2a40', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', padding:'2px 7px', borderRadius:'5px' }}>Quick read for new users</span>
+              </div>
+              <div style={{ flex:1, overflowY:'auto' }} className="scrollbar-hide">
+                {[
+                  { dot:'#06b6d4', text:`Current state: ${systemState}.` },
+                  { dot:'#ef4444', text:`High-risk alerts: ${highCount} out of ${totalAlerts} total alerts.` },
+                  { dot:'#f59e0b', text:`Most impacted supplier: ${mostImpacted}.` },
+                  { dot:'#10b981', text: latestLog ? `Latest decision: ${latestLog.reasoning?.slice(0,80)}…` : 'Latest decision:  No decision events yet.' },
+                ].map((item, i) => (
+                  <div key={i} style={{ display:'flex', gap:'8px', marginBottom:'8px', alignItems:'flex-start' }}>
+                    <div style={{ width:'6px', height:'6px', borderRadius:'50%', background:item.dot, flexShrink:0, marginTop:'3px' }} />
+                    <p style={{ fontSize:'11px', color:'#3a5070', lineHeight:1.55 }}>{item.text}</p>
+                  </div>
                 ))}
               </div>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-center text-sm text-zinc-500">Awaiting orchestration activity…</div>
-            )}
+            </div>
           </div>
-        </div>
-      </main>
+        )}
+ 
+        {/* ── Decision Stream Tab ── */}
+        {orchTab === 'stream' && (
+          <div ref={logScrollRef} style={{ flex:1, overflowX:'auto', overflowY:'hidden', display:'flex', alignItems:'stretch', gap:'8px', padding:'10px 16px' }} className="scrollbar-hide">
+            {logs.length === 0 && (
+              <div style={{ display:'flex', alignItems:'center', paddingLeft:'8px' }}>
+                <span style={{ fontSize:'11px', color:'#1a2a40', fontStyle:'italic', letterSpacing:'0.05em' }}>Initializing MCP agentic protocols…</span>
+              </div>
+            )}
+            {logs.map((log, i) => {
+              const isHigh = log.riskLevel === 'HIGH';
+              const isMed  = log.riskLevel === 'MEDIUM';
+              return (
+                <motion.div key={i} initial={{ x:20, opacity:0 }} animate={{ x:0, opacity:1 }}
+                  style={{ minWidth:'308px', maxWidth:'308px', border:`1px solid ${isHigh?'rgba(239,68,68,0.2)':isMed?'rgba(245,158,11,0.2)':'rgba(6,182,212,0.14)'}`, borderRadius:'11px', padding:'11px 13px', background: isHigh?'rgba(239,68,68,0.05)':isMed?'rgba(245,158,11,0.04)':'rgba(6,182,212,0.03)', display:'flex', flexDirection:'column', justifyContent:'space-between', flexShrink:0 }}
+                >
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px' }}>
+                    <span style={{ fontSize:'11px', fontWeight:700, color:'#c8dff5' }}>{log.supplierName}</span>
+                    <div style={{ display:'flex', gap:'3px' }}>
+                      {['News','Finance','Compliance'].map(tag => (
+                        <span key={tag} style={{ fontSize:'8px', fontWeight:700, padding:'1px 5px', borderRadius:'3px', textTransform:'uppercase', background: tag==='News'?'rgba(59,130,246,0.11)':tag==='Finance'?'rgba(139,92,246,0.11)':'rgba(16,185,129,0.09)', color: tag==='News'?'#60a5fa':tag==='Finance'?'#a78bfa':'#34d399', border:`1px solid ${tag==='News'?'rgba(59,130,246,0.18)':tag==='Finance'?'rgba(139,92,246,0.18)':'rgba(16,185,129,0.18)'}` }}>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <p style={{ fontSize:'10px', color:'#3a5070', lineHeight:1.6, flex:1, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' as any, marginBottom:'7px' }}>{log.reasoning}</p>
+                  <div style={{ display:'flex', alignItems:'center', gap:'7px', paddingTop:'6px', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+                    {log.votes?.map((v:any, j:number) => (
+                      <div key={j} style={{ display:'flex', alignItems:'center', gap:'3px' }}>
+                        <div style={{ width:'5px', height:'5px', borderRadius:'50%', background: v.vote==='BLOCK'?'#ef4444':v.vote==='SHIFT'?'#f59e0b':'#10b981' }} />
+                        <span style={{ fontSize:'8px', color:'#2d4060', fontWeight:600 }}>{v.agent}</span>
+                        <span style={{ fontSize:'8px', color:'#1a2a40' }}>({v.vote})</span>
+                      </div>
+                    ))}
+                    <span style={{ marginLeft:'auto', fontSize:'8px', fontWeight:700, padding:'2px 6px', borderRadius:'4px', background: isHigh?'rgba(239,68,68,0.11)':isMed?'rgba(245,158,11,0.11)':'rgba(6,182,212,0.09)', color: isHigh?'#f87171':isMed?'#fbbf24':'#67e8f9' }}>
+                      {log.complianceScore || log.riskLevel}
+                    </span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+ 
+      <style jsx global>{`
+        @keyframes valuepulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .scrollbar-hide::-webkit-scrollbar{display:none}
+        .scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}
+      `}</style>
     </div>
   );
 }

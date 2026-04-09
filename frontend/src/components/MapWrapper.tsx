@@ -14,9 +14,11 @@ const ActualMap = dynamic(() => import('./ActualMap'), {
 interface Props {
   suppliers: any[];
   hq?: { lat: number; lng: number };
+  activeNode?: string;
+  hierarchy?: any;
 }
  
-// This wrapper MUST forward both props to ActualMap
-export default function MapWrapper({ suppliers, hq }: Props) {
-  return <ActualMap suppliers={suppliers} hq={hq} />;
+// This wrapper MUST forward all props to ActualMap
+export default function MapWrapper({ suppliers, hq, activeNode, hierarchy }: Props) {
+  return <ActualMap suppliers={suppliers} hq={hq} activeNode={activeNode} hierarchy={hierarchy} />;
 }
