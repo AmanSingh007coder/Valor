@@ -39,15 +39,40 @@ const getMCPClient = async () => {
 // --- SPECIALIST NODES ---
 
 const newsNode = async (state: typeof ValorState.State) => {
+const newsNode = async (state: typeof ValorState.State) => {
+  const worldDataRaw = await fs.readFile(STATE_PATH, "utf-8");
+  const data = JSON.parse(worldDataRaw);
+  const s = data.suppliers.find((sup: any) => sup.id === state.supplierId);
+
   const client = await getMCPClient();
-  const res = await client.callTool({ name: "get_triangulated_intel", arguments: { supplierId: state.supplierId } }, CallToolResultSchema);
+  const res = await client.callTool({ 
+    name: "get_triangulated_intel", 
+    arguments: { 
+      supplierId: state.supplierId,
+      lat: s.lat,
+      lng: s.lng,
+      name: s.name // Pass the real company name!
+    } 
+  }, CallToolResultSchema);
+  
   return { newsIntel: JSON.parse((res as any).content[0].text) };
 };
 
 const financeNode = async (state: typeof ValorState.State) => {
-  const client = await getMCPClient();
-  const res = await client.callTool({ name: "get_finance_alerts", arguments: { supplierId: state.supplierId } }, CallToolResultSchema);
-  return { financeIntel: JSON.parse((res as any).content[0].text) };
+  const worldDataRaw = await fs.readFile(STATE_PATH, "utf-8");
+  const data = JSON.parse(worldDataRaw);
+  const s = data.suppliers.find((sup: any) => sup.id === state.supplierId);
+
+  // Calculate the "Market Deviation"
+  const priceHikePercent = ((s.current_price - s.base_price) / s.base_price) * 100;
+
+  return { 
+    financeIntel: {
+      deviation: priceHikePercent.toFixed(2),
+      status: priceHikePercent > 15 ? "PRICE_GOUGING_DETECTED" : "MARKET_STABLE",
+      risk: priceHikePercent > 20 ? "HIGH" : "LOW"
+    } 
+  };
 };
 
 const complianceNode = async (state: typeof ValorState.State) => {
@@ -60,22 +85,24 @@ const complianceNode = async (state: typeof ValorState.State) => {
 };
 
 const auditorNode = async (state: typeof ValorState.State) => {
-  // 1. Fetch the Company Rules from the world_state
   const worldData = JSON.parse(await fs.readFile(STATE_PATH, "utf-8"));
   const companyRules = worldData.company_rules;
 
   const prompt = `
-    You are the Lead Auditor for a company with these SPECIFIC compliance laws:
-    "${companyRules}"
+    You are the Senior Supply Chain Auditor.
+    RULES: "${companyRules}"
 
-    Analyze these reports for ${state.supplierId}:
-    - NEWS: ${JSON.stringify(state.newsIntel)}
-    - FINANCE: ${JSON.stringify(state.financeIntel)}
-    - COMPLIANCE: ${JSON.stringify(state.complianceIntel)}
+    EVIDENCE DATA:
+    - NEWS & SATELLITE: ${JSON.stringify(state.newsIntel)}
+    - FINANCE DELTA: ${state.financeIntel.deviation}% (${state.financeIntel.status})
+    - COMPLIANCE INITIAL SCAN: ${JSON.stringify(state.complianceIntel)}
 
-    Decision Logic:
-    1. If the data violates a SPECIFIC COMPANY RULE, take the mandated action.
-    2. Return ONLY JSON: {"level": "HIGH" | "MEDIUM" | "LOW", "reason": "string"}
+    LOGIC:
+    - If Compliance scan shows "Child Labor", cross-reference with NEWS. If NEWS is "Normal production" and only the prompt mentioned labor, do NOT block immediately. 
+    - If Weather is "OBSCURED", mark as DISRUPTED, not BLOCKED.
+    - Only BLOCK if there is definitive evidence of a law violation.
+    
+    Return JSON: {"level": "HIGH" | "MEDIUM" | "LOW", "reason": "string"}
   `;
   
   const result = await model.generateContent(prompt);
@@ -83,14 +110,35 @@ const auditorNode = async (state: typeof ValorState.State) => {
   return { riskLevel: response.level, reasoning: response.reason };
 };
 
+
+// backend/src/langgraph_orchestrator.ts
+
 const executionNode = async (state: typeof ValorState.State) => {
-  const client = await getMCPClient();
-  await client.callTool({ 
-    name: "execute_audit_action", 
-    arguments: { riskLevel: state.riskLevel, supplierId: state.supplierId } 
-  }, CallToolResultSchema);
+  // 1. Logic to translate Agent findings into a "Meaningful Status"
+  let meaningfulStatus = "OPERATIONAL";
+
+  if (state.complianceIntel.status === "NON_COMPLIANT") {
+    meaningfulStatus = "CHILD_LABOR_RISK";
+  } else if (state.financeIntel.deviation > 15) {
+    meaningfulStatus = "PRICE_GOUGING";
+  } else if (state.newsIntel.satellite_view === "OBSCURED_BY_STORM") {
+    meaningfulStatus = "WEATHER_STRIKE";
+  } else if (state.riskLevel === "MEDIUM") {
+    meaningfulStatus = "UNDER_AUDIT";
+  }
+
+  // 2. Update the world_state.json with this specific status
+  const data = JSON.parse(await fs.readFile(STATE_PATH, "utf-8"));
+  const supplierIdx = data.suppliers.findIndex((s: any) => s.id === state.supplierId);
   
-  // Save Detailed Log for Frontend "Truth Engine"
+  if (supplierIdx !== -1) {
+    data.suppliers[supplierIdx].status = meaningfulStatus;
+    // Also save the specific reasoning so the card can show it
+    data.suppliers[supplierIdx].internet_news = state.reasoning;
+    await fs.writeFile(STATE_PATH, JSON.stringify(data, null, 2));
+  }
+
+  // 3. Standard Logging
   const logs = JSON.parse(await fs.readFile(LOG_PATH, "utf-8"));
   logs.unshift({
     supplierId: state.supplierId,
@@ -100,6 +148,7 @@ const executionNode = async (state: typeof ValorState.State) => {
     details: { news: state.newsIntel, finance: state.financeIntel, compliance: state.complianceIntel }
   });
   await fs.writeFile(LOG_PATH, JSON.stringify(logs.slice(0, 50), null, 2));
+  
   return {};
 };
 
@@ -123,4 +172,5 @@ export const valorApp = workflow.compile();
 export async function runValorGraph(id: string) {
   console.log(`🚀 [VALOR GRAPH] Multi-Agent check started for ${id}`);
   await valorApp.invoke({ supplierId: id });
+}
 }

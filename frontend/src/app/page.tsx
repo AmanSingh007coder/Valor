@@ -1,356 +1,166 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { 
-  Activity, Cpu, Globe, CheckCircle2, TrendingUp, Search, Zap, ShieldAlert, Server
-} from 'lucide-react';
+import { Activity, Cpu, Globe, CheckCircle2, TrendingUp, Search, Zap, ShieldAlert, Server, Box } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MapWrapper = dynamic(() => import('@/components/MapWrapper'), { ssr: false });
 
+const getStatusStyles = (status: string) => {
+  switch (status) {
+    case 'CHILD_LABOR_RISK':
+      return "border-red-500/50 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]";
+    case 'PRICE_GOUGING':
+      return "border-yellow-500/50 bg-yellow-500/10 text-yellow-400";
+    case 'WEATHER_STRIKE':
+      return "border-blue-500/50 bg-blue-500/10 text-blue-400";
+    case 'UNDER_AUDIT':
+      return "border-cyan-500/50 bg-cyan-500/10 text-cyan-400 animate-pulse";
+    default:
+      return "border-emerald-500/20 bg-emerald-500/5 text-emerald-500";
+  }
+}
+
 export default function Home() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
-  const [hq, setHq] = useState({ lat: 37.7749, lng: -122.4194 }); // Added HQ state
-  const [selectedThreatDetail, setSelectedThreatDetail] = useState<'BLOCKED' | 'DISRUPTED' | 'OPERATIONAL' | null>(null);
-  const [showToast, setShowToast] = useState(false);
+  const [hq, setHq] = useState({ lat: 37.7749, lng: -122.4194 });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 1. POLLING LOGIC: Fetch everything from Express API
   useEffect(() => {
     const fetchData = async () => {
       try {
         const stateRes = await fetch('http://localhost:5000/api/state');
-        if (!stateRes.ok) throw new Error("API down");
-        
         const stateData = await stateRes.json();
-        
-        // Extract data from the new onboarding structure
         setSuppliers(stateData.suppliers || []);
-        if (stateData.hq) {
-            setHq(stateData.hq);
-        }
+        if (stateData.hq) setHq(stateData.hq);
 
         const logsRes = await fetch('http://localhost:5000/api/logs');
-        if (!logsRes.ok) throw new Error("Logs down");
         const logsData = await logsRes.json();
         setLogs(logsData);
-        
-        if (logsData[0]?.riskLevel === "HIGH" && isProcessing) {
-            setShowToast(true);
-            setIsProcessing(false);
-        }
-      } catch (err) {
-        console.log("Syncing with Valor API...");
-      }
+        if (logsData[0]?.riskLevel === "HIGH" && isProcessing) setIsProcessing(false);
+      } catch (err) { console.log("Syncing..."); }
     };
-
     const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
   }, [isProcessing]);
 
-  useEffect(() => {
-    if (!showToast) return;
-    const timer = window.setTimeout(() => setShowToast(false), 4500);
-    return () => window.clearTimeout(timer);
-  }, [showToast]);
-
-  const simulateDisaster = async (targetId?: string) => {
-    const id = targetId || suppliers.find((s) => s.status === 'OPERATIONAL')?.id;
-    if (!id) return;
-
+  const simulateDisaster = async (id: string) => {
     setIsProcessing(true);
+    const scenarios = [
+      { news: "CRITICAL: Reports of illegal child labor detected.", type: "LABOR" },
+      { news: "WARNING: Minor logistics delay due to port congestion.", type: "LOGISTICS" },
+      { news: "INFO: Sudden market volatility causing a 15% price spike.", type: "FINANCE" }
+    ];
+    const picked = scenarios[Math.floor(Math.random() * scenarios.length)];
     await fetch('http://localhost:5000/api/trigger-disaster', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        supplierId: id,
-        news: 'CRITICAL: Reports of unauthorized labor and price gouging.',
-      }),
+      body: JSON.stringify({ supplierId: id, news: picked.news })
     });
   };
 
-  const blockedSuppliers = suppliers.filter((s) => s.status === 'BLOCKED');
-  const disruptedSuppliers = suppliers.filter((s) => s.status === 'DISRUPTED');
-  const operationalSuppliers = suppliers.filter((s) => s.status === 'OPERATIONAL');
-  const blockedCount = blockedSuppliers.length;
-  const disruptedCount = disruptedSuppliers.length;
-  const operationalCount = operationalSuppliers.length;
-  const activeThreats = blockedCount + disruptedCount;
-  const isGlobalCritical = activeThreats > 0;
-  const statusLabel = isProcessing ? 'AGENTS PROCESSING' : isGlobalCritical ? 'CRITICAL' : 'NOMINAL';
-
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#05070f] text-zinc-100 flex flex-col font-sans selection:bg-cyan-500/25">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.18),transparent_35%)]" />
-      <div className="pointer-events-none absolute right-20 top-28 h-72 w-72 rounded-full bg-violet-500/12 blur-3xl" />
-      <div className="pointer-events-none absolute left-12 top-56 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
-
-      <header className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-xl sticky top-4 z-50 mx-6 mb-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-cyan-300/80">
-              <Activity className="h-4 w-4 text-cyan-400" />
-              VALOR
-            </div>
-            <div className="max-w-2xl space-y-3">
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Supply chain resilience redesigned for operators.</h1>
-              <p className="text-sm leading-6 text-zinc-400">Monitor threat vectors, reroute impacted capacity, and keep all teams aligned from a single polished command center.</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-2xl border border-cyan-500/15 bg-zinc-950/80 px-4 py-3 text-sm text-zinc-300 shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
-              <div className="text-xs uppercase tracking-[0.28em] text-zinc-500">Operational Nodes</div>
-              <div className="mt-2 text-2xl font-semibold text-white">{suppliers.filter((s) => s.status === 'OPERATIONAL').length}/{suppliers.length || 1}</div>
-            </div>
-            <div className={`rounded-2xl border px-4 py-3 text-sm shadow-[0_20px_50px_rgba(0,0,0,0.2)] ${isGlobalCritical ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'}`}>
-              <div className="text-xs uppercase tracking-[0.28em]">{isProcessing ? 'AGENTS PROCESSING' : isGlobalCritical ? 'CRITICAL' : 'NOMINAL'}</div>
-              <div className="mt-2 text-2xl font-semibold">{blockedCount + disruptedCount} Active</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => simulateDisaster()}
-              disabled={isProcessing}
-              className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-[0_20px_50px_rgba(6,182,212,0.25)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isProcessing ? 'Processing...' : 'Simulate Disaster'}
-            </button>
+    <div className="h-screen bg-[#05060a] text-zinc-100 flex flex-col p-4 gap-4 overflow-hidden font-mono">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-cyan-500 p-1.5 rounded-sm"><Box className="text-black h-5 w-5" /></div>
+          <div>
+            <h1 className="text-lg font-black tracking-tighter">VALOR // CORE_STRAT</h1>
+            <p className="text-[10px] text-zinc-500">Autonomous Supply Intelligence v1.0.4</p>
           </div>
         </div>
-      </header>
-
-      <main className="flex-1 grid gap-6 xl:grid-cols-[2.2fr_1fr] p-4 px-6 overflow-hidden">
-        <div className="grid gap-6">
-          <div className="rounded-[2rem] border border-white/10 bg-slate-950/75 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] overflow-hidden">
-            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Live network map</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">Operational footprint</h2>
-              </div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs uppercase tracking-[0.28em] text-cyan-200 shadow-sm">
-                <CheckCircle2 className="h-4 w-4 text-cyan-400" /> {isProcessing ? 'AGENTS PROCESSING' : isGlobalCritical ? 'CRITICAL' : 'NOMINAL'}
-              </span>
+        <div className="flex gap-4">
+            <div className="text-right">
+                <p className="text-[9px] text-zinc-500 uppercase">System Integrity</p>
+                <p className="text-xs font-bold text-emerald-500">NOMINAL_READY</p>
             </div>
+        </div>
+      </div>
 
-            <div className="relative h-[520px] overflow-hidden rounded-[1.75rem] border border-cyan-900/40 bg-[#02050b] shadow-inner">
-              <MapWrapper suppliers={suppliers} hq={hq} />
-              <div className="absolute left-5 top-5 rounded-2xl border border-white/10 bg-black/60 px-3 py-3 text-xs text-zinc-300 backdrop-blur-md shadow-lg">
-                <div className="font-semibold uppercase tracking-[0.24em] text-cyan-300">Legend</div>
-                <div className="mt-3 flex flex-col gap-2">
-                  <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> HQ</div>
-                  <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Operational</div>
-                  <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-400" /> Disrupted</div>
+      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+        {/* Top Row: Map & Directory */}
+        <div className="h-[65%] flex gap-4">
+          <div className="flex-[2] rounded-2xl border border-white/5 bg-zinc-950/50 overflow-hidden relative shadow-2xl">
+            <MapWrapper suppliers={suppliers} hq={hq} />
+            <div className="absolute top-4 right-4 z-[1000] bg-black/80 border border-white/10 p-3 rounded-lg backdrop-blur-md">
+                <div className="text-[10px] text-zinc-500 mb-2 uppercase tracking-widest">Global Status</div>
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Operational: {suppliers.filter(s => s.status === 'OPERATIONAL').length}</div>
+                    <div className="flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-red-500"></span> High Risk: {suppliers.filter(s => s.status !== 'OPERATIONAL').length}</div>
                 </div>
-              </div>
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-slate-950/75 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)]">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Threat matrix</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">Severity & response</h2>
-              </div>
-              <div className="text-xs uppercase tracking-[0.25em] text-zinc-500">{suppliers.length} nodes monitored</div>
-            </div>
+          <div className="flex-1 border border-white/5 bg-zinc-950/50 rounded-2xl p-4 flex flex-col overflow-hidden">
+            <h3 className="text-[11px] font-bold text-cyan-500 mb-4 flex items-center gap-2 uppercase"><Server size={14}/> Node Selection</h3>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+{suppliers.map((s) => (
+  <button 
+    key={s.id} 
+    onClick={() => simulateDisaster(s.id)}
+    disabled={isProcessing}
+    className={`w-full group text-left p-4 rounded-2xl border transition-all duration-500 hover:scale-[1.02] ${getStatusStyles(s.status)}`}
+  >
+    <div className="flex justify-between items-start mb-2">
+      <span className="text-[10px] opacity-50 font-black tracking-tighter">{s.id}</span>
+      <div className="flex flex-col items-end">
+        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-black/40">
+          {s.status.replace('_', ' ')}
+        </span>
+      </div>
+    </div>
+    
+    <div className="text-sm font-bold tracking-tight mb-1">{s.name}</div>
+    
+    {/* Dynamic Mini-Reasoning on the card */}
+    <p className="text-[10px] opacity-70 line-clamp-1 mb-3">
+      {s.status === 'OPERATIONAL' ? "All systems nominal" : s.internet_news}
+    </p>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => setSelectedThreatDetail('BLOCKED')}
-                className={`rounded-3xl border border-white/10 bg-black/30 p-4 text-left transition ${selectedThreatDetail === 'BLOCKED' ? 'border-red-400/40 bg-red-950/30 shadow-[0_0_25px_rgba(239,68,68,0.2)]' : 'hover:border-red-400/20 hover:bg-white/5'}`}
-              >
-                <div className="text-xs uppercase tracking-[0.3em] text-red-400/80">Blocked</div>
-                <div className="mt-4 text-4xl font-semibold text-red-400">{blockedCount}</div>
-                <p className="mt-2 text-sm text-zinc-500">Immediate escalation required.</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedThreatDetail('DISRUPTED')}
-                className={`rounded-3xl border border-white/10 bg-black/30 p-4 text-left transition ${selectedThreatDetail === 'DISRUPTED' ? 'border-amber-400/40 bg-amber-950/20 shadow-[0_0_25px_rgba(234,179,8,0.2)]' : 'hover:border-amber-400/20 hover:bg-white/5'}`}
-              >
-                <div className="text-xs uppercase tracking-[0.3em] text-amber-400/80">Disrupted</div>
-                <div className="mt-4 text-4xl font-semibold text-amber-300">{disruptedCount}</div>
-                <p className="mt-2 text-sm text-zinc-500">Monitoring for automated reroute.</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedThreatDetail('OPERATIONAL')}
-                className={`rounded-3xl border border-white/10 bg-black/30 p-4 text-left transition ${selectedThreatDetail === 'OPERATIONAL' ? 'border-emerald-400/40 bg-emerald-950/20 shadow-[0_0_25px_rgba(16,185,129,0.2)]' : 'hover:border-emerald-400/20 hover:bg-white/5'}`}
-              >
-                <div className="text-xs uppercase tracking-[0.3em] text-emerald-400/80">Operational</div>
-                <div className="mt-4 text-4xl font-semibold text-emerald-300">{operationalCount}</div>
-                <p className="mt-2 text-sm text-zinc-500">Stable nodes remaining.</p>
-              </button>
+    <div className="flex items-center justify-between pt-2 border-t border-white/5">
+      <div className="flex gap-2">
+        <div className={`h-1.5 w-1.5 rounded-full ${s.status === 'OPERATIONAL' ? 'bg-emerald-500' : 'bg-red-500 animate-ping'}`} />
+        <span className="text-[8px] font-bold uppercase opacity-40">Live Telemetry</span>
+      </div>
+      <span className="text-[9px] font-black group-hover:translate-x-1 transition-transform">RUN_AUDIT →</span>
+    </div>
+  </button>
+))}
             </div>
-            {selectedThreatDetail ? (
-              <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-200">
-                {selectedThreatDetail === 'BLOCKED' && (
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.32em] text-red-400/80">Blocked suppliers</div>
-                    <p className="mt-3 text-base text-white">These suppliers are currently blocked and need immediate follow-up.</p>
-                    <div className="mt-4 grid gap-3">
-                      {blockedSuppliers.length ? blockedSuppliers.map((supplier) => (
-                        <div key={supplier.id} className="rounded-2xl border border-red-500/20 bg-red-950/10 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <div className="font-semibold text-white">{supplier.name}</div>
-                              <div className="text-xs text-zinc-500">{supplier.id}</div>
-                            </div>
-                            <span className="rounded-full bg-red-500/10 px-2 py-1 text-[11px] text-red-300 uppercase">{supplier.status}</span>
-                          </div>
-                          <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
-                            <div>Price: ${supplier.current_price ?? 'N/A'}</div>
-                            <div>Location: {supplier.lat}, {supplier.lng}</div>
-                          </div>
-                        </div>
-                      )) : <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-zinc-500">No blocked suppliers are currently reported.</div>}
-                    </div>
-                  </div>
-                )}
-                {selectedThreatDetail === 'DISRUPTED' && (
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.32em] text-amber-400/80">Disrupted suppliers</div>
-                    <p className="mt-3 text-base text-white">These suppliers are disrupted but still available for partial routing and monitoring.</p>
-                    <div className="mt-4 grid gap-3">
-                      {disruptedSuppliers.length ? disruptedSuppliers.map((supplier) => (
-                        <div key={supplier.id} className="rounded-2xl border border-amber-400/20 bg-amber-950/10 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <div className="font-semibold text-white">{supplier.name}</div>
-                              <div className="text-xs text-zinc-500">{supplier.id}</div>
-                            </div>
-                            <span className="rounded-full bg-amber-400/10 px-2 py-1 text-[11px] text-amber-300 uppercase">{supplier.status}</span>
-                          </div>
-                          <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
-                            <div>Price: ${supplier.current_price ?? 'N/A'}</div>
-                            <div>Location: {supplier.lat}, {supplier.lng}</div>
-                          </div>
-                        </div>
-                      )) : <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-zinc-500">No disrupted suppliers are currently reported.</div>}
-                    </div>
-                  </div>
-                )}
-                {selectedThreatDetail === 'OPERATIONAL' && (
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.32em] text-emerald-400/80">Operational suppliers</div>
-                    <p className="mt-3 text-base text-white">These suppliers are healthy and available to carry additional load if needed.</p>
-                    <div className="mt-4 grid gap-3">
-                      {operationalSuppliers.length ? operationalSuppliers.map((supplier) => (
-                        <div key={supplier.id} className="rounded-2xl border border-emerald-400/20 bg-emerald-950/10 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <div className="font-semibold text-white">{supplier.name}</div>
-                              <div className="text-xs text-zinc-500">{supplier.id}</div>
-                            </div>
-                            <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[11px] text-emerald-300 uppercase">{supplier.status}</span>
-                          </div>
-                          <div className="mt-3 grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
-                            <div>Price: ${supplier.current_price ?? 'N/A'}</div>
-                            <div>Location: {supplier.lat}, {supplier.lng}</div>
-                          </div>
-                        </div>
-                      )) : <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-zinc-500">No operational suppliers are currently reported.</div>}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="mt-6 rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-500">
-                Click a category above to view supplier details for that status.
-              </div>
-            )}
           </div>
         </div>
 
-        <aside className="space-y-6">
-          <div className="rounded-[2rem] border border-white/10 bg-slate-950/75 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)]">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Supplier directory</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">Select a target</h2>
-              </div>
-              <span className="rounded-full bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.28em] text-zinc-400">Interactive</span>
+        {/* Bottom Row: Orchestration Log (Horizontal) */}
+        <div className="h-[35%] border border-white/5 bg-zinc-950/50 rounded-2xl p-4 flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                <h3 className="text-[11px] font-bold text-cyan-500 flex items-center gap-2 uppercase"><Cpu size={14}/> Live Orchestration Stream</h3>
+                <span className="text-[10px] animate-pulse text-emerald-500">RECEIVING_TELEMETRY...</span>
             </div>
-
-            <div className="max-h-[360px] space-y-3 overflow-y-auto pr-2">
-              {suppliers.length ? (
-                suppliers.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => simulateDisaster(s.id)}
-                    className={`w-full rounded-3xl border px-4 py-3 text-left transition ${
-                      s.status === 'BLOCKED'
-                        ? 'border-red-900/40 bg-red-900/10 text-red-300'
-                        : 'border-zinc-800/80 bg-white/5 text-zinc-200 hover:border-cyan-500/30'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">{s.id}</p>
-                        <p className="mt-1 text-sm font-semibold text-white">{s.name}</p>
-                      </div>
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
-                        s.status === 'OPERATIONAL'
-                          ? 'bg-emerald-500/10 text-emerald-300'
-                          : 'bg-red-500/10 text-red-300'
-                      }`}>
-                        {s.status}
-                      </span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="rounded-3xl border border-white/10 bg-black/20 p-6 text-center text-sm text-zinc-500">Waiting for supplier telemetry…</div>
-              )}
+            <div className="flex-1 flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                {logs.length === 0 && <div className="text-zinc-700 italic text-sm">Waiting for agent activation...</div>}
+                {logs.map((log, i) => (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }} 
+                        animate={{ opacity: 1, scale: 1 }} 
+                        key={i} 
+                        className="min-w-[400px] h-full bg-black/40 border border-white/5 rounded-xl p-4 flex flex-col justify-between"
+                    >
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-[10px] text-cyan-400 font-black">{log.supplierId}</span>
+                            <span className="text-[9px] text-zinc-600">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 leading-relaxed mb-3 italic">"{log.reasoning}"</p>
+                        <div className="flex gap-3 pt-2 border-t border-white/5">
+                            <div className="flex items-center gap-1 text-[9px] text-yellow-500"><TrendingUp size={10}/> Finance: {log.details?.finance?.status}</div>
+                            <div className="flex items-center gap-1 text-[9px] text-red-500"><ShieldAlert size={10}/> Compliance: {log.details?.compliance?.status}</div>
+                        </div>
+                    </motion.div>
+                ))}
             </div>
-          </div>
-
-          <div className="rounded-[2rem] border border-white/10 bg-slate-950/75 p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)]">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80">Orchestration log</p>
-                <h2 className="mt-2 text-xl font-semibold text-white">Decision stream</h2>
-              </div>
-              <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-cyan-200">Live</span>
-            </div>
-
-            <div aria-live="polite" aria-atomic="true" className="max-h-[380px] overflow-y-auto space-y-3 rounded-3xl border border-white/10 bg-black/20 p-3 text-sm text-zinc-300">
-              {logs.length ? (
-                logs.map((log, i) => (
-                  <div key={i} className="rounded-3xl border border-white/10 bg-white/5 p-3 shadow-inner">
-                    <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-cyan-300/80">
-                      <span>{log.supplierId || 'UNKNOWN'}</span>
-                      <span>{log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : ''}</span>
-                    </div>
-                    <p className="mt-2 text-sm text-zinc-100">{log.reasoning}</p>
-                    {log.details && (
-                      <div className="mt-3 grid gap-2 text-[11px] text-zinc-400 sm:grid-cols-2">
-                        {log.details.finance?.alert && <div className="rounded-2xl bg-white/5 p-2">Finance: {log.details.finance.alert}</div>}
-                        {log.details.compliance?.status && <div className="rounded-2xl bg-white/5 p-2">Compliance: {log.details.compliance.status}</div>}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-3xl border border-white/10 bg-black/20 p-6 text-center text-sm text-zinc-500">Awaiting orchestration activity…</div>
-              )}
-            </div>
-          </div>
-        </aside>
-      </main>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {showToast && (
-          <motion.div initial={{ y: 50 }} animate={{ y: 0 }} exit={{ y: 20 }} className="fixed bottom-8 right-8 bg-red-600 p-4 rounded-lg shadow-2xl flex items-center gap-4 z-50">
-            <Zap className="h-6 w-6" />
-            <div className="font-bold text-sm uppercase">Supplier Blacklisted - Rerouting Initiated</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 }
