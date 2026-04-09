@@ -19,12 +19,14 @@ const ValorState = Annotation.Root({
   newsIntel: Annotation<any>,
   financeIntel: Annotation<any>,
   complianceIntel: Annotation<any>,
+  votes: Annotation<any[]>,       //Store agent votes
+  simulations: Annotation<any[]>, //Store what-if scenarios
   riskLevel: Annotation<string>,
   reasoning: Annotation<string>,
 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 const getMCPClient = async () => {
   const transport = new StdioClientTransport({
@@ -39,7 +41,6 @@ const getMCPClient = async () => {
 // --- SPECIALIST NODES ---
 
 const newsNode = async (state: typeof ValorState.State) => {
-const newsNode = async (state: typeof ValorState.State) => {
   const worldDataRaw = await fs.readFile(STATE_PATH, "utf-8");
   const data = JSON.parse(worldDataRaw);
   const s = data.suppliers.find((sup: any) => sup.id === state.supplierId);
@@ -51,11 +52,19 @@ const newsNode = async (state: typeof ValorState.State) => {
       supplierId: state.supplierId,
       lat: s.lat,
       lng: s.lng,
-      name: s.name // Pass the real company name!
+      name: s.name 
     } 
   }, CallToolResultSchema);
   
-  return { newsIntel: JSON.parse((res as any).content[0].text) };
+  const intel = JSON.parse((res as any).content[0].text);
+  
+  
+  const vote = intel.web_news.toLowerCase().includes("critical") || intel.web_news.toLowerCase().includes("illegal") ? "BLOCK" : "KEEP";
+  
+  return { 
+    newsIntel: intel,
+    votes: [...(state.votes || []), { agent: "News", vote, weight: 1 }]
+  };
 };
 
 const financeNode = async (state: typeof ValorState.State) => {
@@ -63,15 +72,18 @@ const financeNode = async (state: typeof ValorState.State) => {
   const data = JSON.parse(worldDataRaw);
   const s = data.suppliers.find((sup: any) => sup.id === state.supplierId);
 
-  // Calculate the "Market Deviation"
   const priceHikePercent = ((s.current_price - s.base_price) / s.base_price) * 100;
+  
+  
+  const vote = priceHikePercent > 15 ? "SHIFT" : "KEEP";
 
   return { 
     financeIntel: {
       deviation: priceHikePercent.toFixed(2),
       status: priceHikePercent > 15 ? "PRICE_GOUGING_DETECTED" : "MARKET_STABLE",
       risk: priceHikePercent > 20 ? "HIGH" : "LOW"
-    } 
+    },
+    votes: [...(state.votes || []), { agent: "Finance", vote, weight: 2 }]
   };
 };
 
@@ -81,7 +93,16 @@ const complianceNode = async (state: typeof ValorState.State) => {
     name: "check_compliance", 
     arguments: { supplierId: state.supplierId, newsFeed: state.newsIntel.web_news } 
   }, CallToolResultSchema);
-  return { complianceIntel: JSON.parse((res as any).content[0].text) };
+  
+  const intel = JSON.parse((res as any).content[0].text);
+  
+  
+  const vote = intel.status === "NON_COMPLIANT" ? "BLOCK" : "KEEP";
+
+  return { 
+    complianceIntel: intel,
+    votes: [...(state.votes || []), { agent: "Compliance", vote, weight: 5 }] // Ethical weight is highest
+  };
 };
 
 const auditorNode = async (state: typeof ValorState.State) => {
@@ -92,17 +113,15 @@ const auditorNode = async (state: typeof ValorState.State) => {
     You are the Senior Supply Chain Auditor.
     RULES: "${companyRules}"
 
+    AGENT VOTES: ${JSON.stringify(state.votes)}
+    
     EVIDENCE DATA:
     - NEWS & SATELLITE: ${JSON.stringify(state.newsIntel)}
-    - FINANCE DELTA: ${state.financeIntel.deviation}% (${state.financeIntel.status})
+    - FINANCE DELTA: ${state.financeIntel.deviation}%
     - COMPLIANCE INITIAL SCAN: ${JSON.stringify(state.complianceIntel)}
 
-    LOGIC:
-    - If Compliance scan shows "Child Labor", cross-reference with NEWS. If NEWS is "Normal production" and only the prompt mentioned labor, do NOT block immediately. 
-    - If Weather is "OBSCURED", mark as DISRUPTED, not BLOCKED.
-    - Only BLOCK if there is definitive evidence of a law violation.
-    
-    Return JSON: {"level": "HIGH" | "MEDIUM" | "LOW", "reason": "string"}
+    TASK: Resolve agent votes and finalize decision.
+    Return ONLY JSON: {"level": "HIGH" | "MEDIUM" | "LOW", "reason": "string"}
   `;
   
   const result = await model.generateContent(prompt);
@@ -110,67 +129,82 @@ const auditorNode = async (state: typeof ValorState.State) => {
   return { riskLevel: response.level, reasoning: response.reason };
 };
 
+//Counterfactual Simulation Node
+const simulationNode = async (state: typeof ValorState.State) => {
+  const prompt = `Perform a Counterfactual Analysis for ${state.supplierId} based on:
+    - Current Risk: ${state.riskLevel}
+    - Reasoning: ${state.reasoning}
 
-// backend/src/langgraph_orchestrator.ts
+    Simulate exactly 3 scenarios:
+    1. ACTION: BLOCK (Immediate cutoff) -> Calculate Estimated Cost Increase % and Risk Reduction.
+    2. ACTION: SHIFT (Gradual 30-day move) -> Calculate Transition Delay and Medium Risk.
+    3. ACTION: KEEP (Ignore alert) -> Calculate Potential Legal Penalty Cost and High Risk.
+
+    Return ONLY JSON: [{"action": "string", "cost": "string", "risk": "string", "outcome": "string"}]`;
+
+  const result = await model.generateContent(prompt);
+  const simulations = JSON.parse(result.response.text().replace(/```json|```/g, "").trim());
+  return { simulations };
+};
 
 const executionNode = async (state: typeof ValorState.State) => {
-  // 1. Logic to translate Agent findings into a "Meaningful Status"
+  //Translate findings into a Meaningful Status for the UI
   let meaningfulStatus = "OPERATIONAL";
+  if (state.complianceIntel.status === "NON_COMPLIANT") meaningfulStatus = "CHILD_LABOR_RISK";
+  else if (parseFloat(state.financeIntel.deviation) > 15) meaningfulStatus = "PRICE_GOUGING";
+  else if (state.newsIntel.satellite_view === "OBSCURED_BY_STORM") meaningfulStatus = "WEATHER_STRIKE";
+  else if (state.riskLevel === "MEDIUM") meaningfulStatus = "UNDER_AUDIT";
 
-  if (state.complianceIntel.status === "NON_COMPLIANT") {
-    meaningfulStatus = "CHILD_LABOR_RISK";
-  } else if (state.financeIntel.deviation > 15) {
-    meaningfulStatus = "PRICE_GOUGING";
-  } else if (state.newsIntel.satellite_view === "OBSCURED_BY_STORM") {
-    meaningfulStatus = "WEATHER_STRIKE";
-  } else if (state.riskLevel === "MEDIUM") {
-    meaningfulStatus = "UNDER_AUDIT";
-  }
-
-  // 2. Update the world_state.json with this specific status
+  //Update world_state.json
   const data = JSON.parse(await fs.readFile(STATE_PATH, "utf-8"));
   const supplierIdx = data.suppliers.findIndex((s: any) => s.id === state.supplierId);
   
   if (supplierIdx !== -1) {
     data.suppliers[supplierIdx].status = meaningfulStatus;
-    // Also save the specific reasoning so the card can show it
     data.suppliers[supplierIdx].internet_news = state.reasoning;
     await fs.writeFile(STATE_PATH, JSON.stringify(data, null, 2));
   }
 
-  // 3. Standard Logging
+  //Save Detailed Logs for the "Truth Engine" horizontal ticker
   const logs = JSON.parse(await fs.readFile(LOG_PATH, "utf-8"));
   logs.unshift({
     supplierId: state.supplierId,
     riskLevel: state.riskLevel,
     reasoning: state.reasoning,
     timestamp: new Date().toISOString(),
-    details: { news: state.newsIntel, finance: state.financeIntel, compliance: state.complianceIntel }
+    votes: state.votes,           // Feature 2 Data
+    simulations: state.simulations, // Feature 1 Data
+    details: { 
+        news: state.newsIntel, 
+        finance: state.financeIntel, 
+        compliance: state.complianceIntel 
+    }
   });
   await fs.writeFile(LOG_PATH, JSON.stringify(logs.slice(0, 50), null, 2));
   
   return {};
 };
 
-// 2. Build the Workflow Graph
+//Build the Workflow Graph
 const workflow = new StateGraph(ValorState)
   .addNode("news", newsNode)
   .addNode("finance", financeNode)
   .addNode("compliance", complianceNode)
   .addNode("audit", auditorNode)
+  .addNode("simulate", simulationNode)
   .addNode("execute", executionNode)
   
   .addEdge(START, "news")
   .addEdge("news", "finance")
   .addEdge("finance", "compliance")
   .addEdge("compliance", "audit")
-  .addEdge("audit", "execute")
+  .addEdge("audit", "simulate")
+  .addEdge("simulate", "execute")
   .addEdge("execute", END);
 
 export const valorApp = workflow.compile();
 
 export async function runValorGraph(id: string) {
-  console.log(`🚀 [VALOR GRAPH] Multi-Agent check started for ${id}`);
+  console.log(`🚀 [VALOR GRAPH] Multi-Agent Strategic Audit started for ${id}`);
   await valorApp.invoke({ supplierId: id });
-}
 }
