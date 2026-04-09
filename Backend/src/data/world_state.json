@@ -13,7 +13,7 @@
       "lat": 19.076,
       "lng": 72.8777,
       "status": "BLOCKED",
-      "internet_news": "CRITICAL: Reports of unauthorized labor and price gouging.",
+      "internet_news": "CRITICAL: Reports of illegal child labor detected.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },
@@ -168,8 +168,8 @@
       "current_price": 1190.03,
       "lat": 40.7128,
       "lng": -74.006,
-      "status": "OPERATIONAL",
-      "internet_news": "Normal production",
+      "status": "DISRUPTED",
+      "internet_news": "INFO: Sudden market volatility causing a 15% price spike.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },
@@ -180,8 +180,8 @@
       "current_price": 3801.96,
       "lat": 43.6532,
       "lng": -79.3832,
-      "status": "OPERATIONAL",
-      "internet_news": "Normal production",
+      "status": "DISRUPTED",
+      "internet_news": "INFO: Sudden market volatility causing a 15% price spike.",
       "gps_status": "MOVING",
       "satellite_view": "CLEAR"
     },

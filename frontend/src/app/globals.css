@@ -1,9 +1,13 @@
 @import "tailwindcss";
 
 body {
-  font-family: var(--font-plus-jakarta-sans), "Segoe UI", sans-serif;
+  font-family: var(--font-manrope), "Segoe UI", sans-serif;
   background: #0a0a0a;
   color: white;
+}
+
+.font-display {
+  font-family: var(--font-space-grotesk), "Segoe UI", sans-serif;
 }
 
 code,

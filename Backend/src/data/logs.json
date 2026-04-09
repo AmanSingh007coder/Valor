@@ -1,5 +1,74 @@
 [
   {
+    "supplierId": "SUP014",
+    "riskLevel": "LOW",
+    "reasoning": "Supplier SUP014 shows no child labor reports. The highest reported price increase is 15% (from NEWS), which is below the 20% threshold required to trigger the blocking rule. The COMPLIANCE report also confirms 'COMPLIANT' status with 'LOW' risk.",
+    "timestamp": "2026-04-09T05:37:55.482Z",
+    "details": {
+      "news": {
+        "web_news": "INFO: Sudden market volatility causing a 15% price spike.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "2.77",
+        "alert": "STABLE"
+      },
+      "compliance": {
+        "supplierId": "SUP014",
+        "status": "COMPLIANT",
+        "risk": "LOW",
+        "reason": "Clear"
+      }
+    }
+  },
+  {
+    "supplierId": "SUP013",
+    "riskLevel": "LOW",
+    "reasoning": "Supplier SUP013 is not in violation of the company's specific compliance laws. There are no child labor reports, and the reported price increases (15% in NEWS, 0.69% in FINANCE) are both below the 20% threshold. The supplier's official compliance status is 'COMPLIANT' with 'LOW' risk.",
+    "timestamp": "2026-04-09T05:34:01.086Z",
+    "details": {
+      "news": {
+        "web_news": "INFO: Sudden market volatility causing a 15% price spike.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "0.69",
+        "alert": "STABLE"
+      },
+      "compliance": {
+        "supplierId": "SUP013",
+        "status": "COMPLIANT",
+        "risk": "LOW",
+        "reason": "Clear"
+      }
+    }
+  },
+  {
+    "supplierId": "SUP000",
+    "riskLevel": "HIGH",
+    "reasoning": "Critical reports of illegal child labor detected, confirming a high-risk non-compliance status. The specific company rule for automatically blocking suppliers (child labor AND price > 20%) is not fully met because the price increase of -3.21% did not exceed 20%. Despite this, the presence of child labor is a severe violation requiring immediate attention.",
+    "timestamp": "2026-04-09T05:25:48.893Z",
+    "details": {
+      "news": {
+        "web_news": "CRITICAL: Reports of illegal child labor detected.",
+        "gps_telemetry": "MOVING",
+        "satellite_imagery": "CLEAR"
+      },
+      "finance": {
+        "price_increase_percent": "-3.21",
+        "alert": "STABLE"
+      },
+      "compliance": {
+        "supplierId": "SUP000",
+        "status": "NON_COMPLIANT",
+        "risk": "HIGH",
+        "reason": "Detected Child Labor/Illegal Activity"
+      }
+    }
+  },
+  {
     "supplierId": "SUP012",
     "riskLevel": "LOW",
     "reasoning": "Supplier SUP012 is compliant with low risk and no child labor reports. Finance delta is stable at -4.33%. Satellite imagery is clear. There is a minor logistics delay due to port congestion, which is an external operational factor and not a direct compliance violation by the supplier.",
